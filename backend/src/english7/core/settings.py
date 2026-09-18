@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     jwt_algorithm: str | None = None
     access_token_minutes: int | None = None
     worker_poll_interval_seconds: float | None = None
+    neo4j_uri: str | None = None
+    neo4j_user: str | None = None
+    neo4j_password: SecretStr | None = None
+    neo4j_vector_index: str | None = None
+    embedding_dimensions: int | None = None
+    retrieval_top_k: int | None = None
+    retrieval_min_score: float | None = None
+    retrieval_graph_depth: int | None = None
+    retrieval_rrf_constant: int | None = None
+    retrieval_max_context_fragments: int | None = None
+    retrieval_allowed_units: str | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

@@ -14,6 +14,7 @@ dependencies = [
   "email-validator>=2.2,<3",
   "PyJWT>=2.10,<3",
   "minio>=7.2,<8",
+  "neo4j>=5.28,<6",
   "pyodbc>=5.2,<6",
   "pydantic-settings>=2.10,<3",
   "sqlalchemy>=2.0.41,<3",
@@ -33,6 +34,7 @@ packages = ["src/english7"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers --import-mode=importlib"
+markers = ["integration: requires configured infrastructure services"]
 filterwarnings = [
   "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning:starlette.testclient",
 ]

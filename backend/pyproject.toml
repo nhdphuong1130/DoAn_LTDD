@@ -17,6 +17,7 @@ dependencies = [
   "neo4j>=5.28,<6",
   "pyodbc>=5.2,<6",
   "pydantic-settings>=2.10,<3",
+  "python-multipart>=0.0.20,<1",
   "sqlalchemy>=2.0.41,<3",
   "uvicorn[standard]>=0.35,<1",
 ]

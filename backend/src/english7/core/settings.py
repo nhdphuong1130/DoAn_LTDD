@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     image_upload_allowed_types: str | None = None
     ocr_languages: str | None = None
     ocr_minimum_confidence: float | None = None
+    minio_endpoint: str | None = None
+    minio_access_key: str | None = None
+    minio_secret_key: SecretStr | None = None
+    minio_upload_bucket: str | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

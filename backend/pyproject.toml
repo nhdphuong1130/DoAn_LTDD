@@ -28,6 +28,11 @@ test = [
   "pytest>=8.4,<9",
   "pytest-cov>=6.2,<7",
 ]
+vision = [
+  "doclayout-yolo>=0.0.3,<0.1",
+  "paddleocr>=3.3,<4",
+  "paddlepaddle>=3.2,<4",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/english7"]

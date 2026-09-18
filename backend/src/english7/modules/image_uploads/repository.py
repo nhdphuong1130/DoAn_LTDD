@@ -66,6 +66,24 @@ class SQLAlchemyImageUploadRepository:
             )
             return self._record(upload) if upload else None
 
+    def claim_next(self) -> ImageUploadRecord | None:
+        with self._session_factory() as session, session.begin():
+            upload = session.scalar(
+                select(StudentImageUpload)
+                .where(
+                    StudentImageUpload.status == ImageUploadStatus.QUEUED.value,
+                    StudentImageUpload.expires_at > datetime.now(timezone.utc),
+                )
+                .order_by(StudentImageUpload.created_at)
+                .with_for_update(skip_locked=True)
+                .limit(1)
+            )
+            if upload is None:
+                return None
+            upload.status = ImageUploadStatus.PROCESSING.value
+            session.flush()
+            return self._record(upload)
+
     def mark_processing(self, upload_id: UUID) -> None:
         self._update(upload_id, status=ImageUploadStatus.PROCESSING.value)
 

@@ -19,6 +19,8 @@ class PresignClient(Protocol):
         content_type: str,
     ): ...
 
+    def get_object(self, bucket_name: str, object_name: str): ...
+
 
 class MinioStorage:
     def __init__(
@@ -55,3 +57,11 @@ class MinioUploadStorage:
             len(content),
             content_type,
         )
+
+    def get(self, object_key: str) -> bytes:
+        response = self._client.get_object(self._bucket, object_key)
+        try:
+            return response.read()
+        finally:
+            response.close()
+            response.release_conn()

@@ -4,6 +4,7 @@ services:
   api:
     build:
       context: ./backend
+      target: runtime
     env_file:
       - path: .env
         required: false
@@ -31,6 +32,10 @@ services:
       ENGLISH7_IMAGE_UPLOAD_ALLOWED_TYPES: ${ENGLISH7_IMAGE_UPLOAD_ALLOWED_TYPES}
       ENGLISH7_OCR_LANGUAGES: ${ENGLISH7_OCR_LANGUAGES}
       ENGLISH7_OCR_MINIMUM_CONFIDENCE: ${ENGLISH7_OCR_MINIMUM_CONFIDENCE}
+      ENGLISH7_MINIO_ENDPOINT: http://minio:9000
+      ENGLISH7_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      ENGLISH7_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      ENGLISH7_MINIO_UPLOAD_BUCKET: ${MINIO_UPLOAD_BUCKET}
       ENGLISH7_NEO4J_VECTOR_INDEX: ${ENGLISH7_NEO4J_VECTOR_INDEX}
       ENGLISH7_EMBEDDING_DIMENSIONS: ${ENGLISH7_EMBEDDING_DIMENSIONS}
       ENGLISH7_RETRIEVAL_TOP_K: ${ENGLISH7_RETRIEVAL_TOP_K}
@@ -72,6 +77,7 @@ services:
     profiles: ["gpu"]
     build:
       context: ./backend
+      target: vision
     env_file:
       - path: .env
         required: false
@@ -93,6 +99,10 @@ services:
       ENGLISH7_IMAGE_UPLOAD_PREFIX: ${ENGLISH7_IMAGE_UPLOAD_PREFIX}
       ENGLISH7_OCR_LANGUAGES: ${ENGLISH7_OCR_LANGUAGES}
       ENGLISH7_OCR_MINIMUM_CONFIDENCE: ${ENGLISH7_OCR_MINIMUM_CONFIDENCE}
+      ENGLISH7_MINIO_ENDPOINT: http://minio:9000
+      ENGLISH7_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      ENGLISH7_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      ENGLISH7_MINIO_UPLOAD_BUCKET: ${MINIO_UPLOAD_BUCKET}
     deploy:
       resources:
         reservations:
@@ -111,6 +121,7 @@ services:
   worker:
     build:
       context: ./backend
+      target: vision
     env_file:
       - path: .env
         required: false
@@ -132,6 +143,10 @@ services:
       ENGLISH7_IMAGE_UPLOAD_PREFIX: ${ENGLISH7_IMAGE_UPLOAD_PREFIX}
       ENGLISH7_OCR_LANGUAGES: ${ENGLISH7_OCR_LANGUAGES}
       ENGLISH7_OCR_MINIMUM_CONFIDENCE: ${ENGLISH7_OCR_MINIMUM_CONFIDENCE}
+      ENGLISH7_MINIO_ENDPOINT: http://minio:9000
+      ENGLISH7_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      ENGLISH7_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      ENGLISH7_MINIO_UPLOAD_BUCKET: ${MINIO_UPLOAD_BUCKET}
     depends_on:
       sqlserver-init:
         condition: service_completed_successfully

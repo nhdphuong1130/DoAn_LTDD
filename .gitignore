@@ -1,0 +1,59 @@
+# Local worktrees
+.worktrees/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+*.iml
+
+# Android Studio / IntelliJ
+.idea/
+android/.gradle/
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local data and generated AI artifacts
+data/raw/
+data/uploads/
+data/processed/
+artifacts/
+models/
+*.onnx
+*.pt
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+

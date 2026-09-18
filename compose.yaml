@@ -1,0 +1,129 @@
+name: ${COMPOSE_PROJECT_NAME:-english7}
+
+services:
+  api:
+    build:
+      context: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ENGLISH7_SERVICE_NAME: ${ENGLISH7_SERVICE_NAME}
+      ENGLISH7_API_PREFIX: ${ENGLISH7_API_PREFIX}
+    ports:
+      - "${API_HOST_PORT}:8000"
+    command: ["uvicorn", "english7.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import os, urllib.request;
+          urllib.request.urlopen('http://localhost:8000' + os.environ['ENGLISH7_API_PREFIX'] + '/health')
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "english7.worker"]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  sqlserver:
+    image: ${SQLSERVER_IMAGE}
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: ${SQLSERVER_EDITION}
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD}
+    ports:
+      - "${SQLSERVER_HOST_PORT}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa
+          -P "$${MSSQL_SA_PASSWORD}" -C -Q "SELECT 1" >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  neo4j:
+    image: ${NEO4J_IMAGE}
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+    ports:
+      - "${NEO4J_HTTP_HOST_PORT}:7474"
+      - "${NEO4J_BOLT_HOST_PORT}:7687"
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  minio:
+    image: ${MINIO_IMAGE}
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_API_HOST_PORT}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  minio-init:
+    image: ${MINIO_MC_IMAGE}
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_MEDIA_BUCKET: ${MINIO_MEDIA_BUCKET}
+      MINIO_UPLOAD_BUCKET: ${MINIO_UPLOAD_BUCKET}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing "local/$${MINIO_MEDIA_BUCKET}"
+        mc mb --ignore-existing "local/$${MINIO_UPLOAD_BUCKET}"
+
+volumes:
+  sqlserver-data:
+  neo4j-data:
+  neo4j-logs:
+  minio-data:

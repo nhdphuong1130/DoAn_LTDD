@@ -13,3 +13,14 @@ docker run --rm -v "$PWD/backend:/app" -w /app python:3.12-slim \
 Infrastructure and Android Studio instructions are added incrementally as the
 corresponding components become executable.
 
+## Docker configuration
+
+Copy `.env.example` to `.env`, replace every local example credential, then run:
+
+```bash
+docker compose config --quiet
+docker compose up --build
+```
+
+Do not commit `.env`. All ports, image tags, credentials, bucket names, and
+service-facing settings are supplied through environment variables.

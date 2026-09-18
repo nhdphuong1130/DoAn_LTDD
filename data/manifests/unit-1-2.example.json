@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "package_id": "10000000-0000-4000-8000-000000000001",
+  "textbook": {
+    "id": "20000000-0000-4000-8000-000000000001",
+    "title": "English 7 Global Success"
+  },
+  "source": {
+    "id": "30000000-0000-4000-8000-000000000001",
+    "filename": "english-7.pdf",
+    "object_key": "sources/replace-with-content-hash/english-7.pdf",
+    "sha256": "replace-with-source-sha256",
+    "page_count": 142,
+    "ingestion_version": "replace-with-pipeline-version"
+  },
+  "units": [],
+  "sections": [],
+  "activities": [],
+  "fragments": [],
+  "audio": []
+}

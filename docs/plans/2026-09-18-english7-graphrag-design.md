@@ -253,7 +253,13 @@ Relationship types MVP:
 
 Quan hệ do AI đề xuất phải có evidence, confidence, model version và review status. Không tự động biến quan hệ suy luận thành fact đã xác minh.
 
-## 10. Hybrid GraphRAG
+## 10. Hierarchical Graph-Vector Fusion
+
+Đây là biến thể Hybrid Retrieval có kiểm soát, được giới hạn cho Unit 1–2. Hệ thống
+tổ chức bằng chứng theo phân cấp `Textbook → Unit → Section → Activity →
+SourceFragment`, dùng vector search để tìm ứng viên gần nghĩa và graph traversal
+để bổ sung ngữ cảnh quan hệ. Hai danh sách được hợp nhất bằng Reciprocal Rank
+Fusion (RRF), tránh so sánh trực tiếp hai thang điểm không đồng nhất.
 
 Luồng truy xuất:
 
@@ -263,9 +269,9 @@ Student query / OCR text
 → query embedding
 → vector candidate retrieval
 → entity linking
-→ graph traversal
+→ constrained graph traversal (tối đa số hop cấu hình)
 → source fragment retrieval
-→ reranking
+→ Reciprocal Rank Fusion
 → context assembly
 → OpenRouter
 → source validation
@@ -273,6 +279,11 @@ Student query / OCR text
 ```
 
 Backend chỉ gọi LLM khi có context đạt ngưỡng tin cậy. LLM nhận context đóng và yêu cầu trả về output có cấu trúc gồm câu trả lời cùng source IDs. Backend xác minh source IDs trước khi trả kết quả.
+
+Chỉ `SourceFragment` có trạng thái `VERIFIED`, thuộc Unit được cấu hình và có
+liên kết nguồn hợp lệ mới được tham gia retrieval. Vector index được đặt trong
+Neo4j; MVP không thêm một vector database riêng và không triển khai community
+summary/global search vì phạm vi dữ liệu nhỏ.
 
 Nếu không có bằng chứng, hệ thống trả thông báo rằng nội dung không tồn tại trong phạm vi SGK đã xử lý.
 

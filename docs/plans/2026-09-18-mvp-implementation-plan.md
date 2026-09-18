@@ -16,7 +16,7 @@ Implement a working vertical slice before expanding breadth:
 2. API contracts and textbook/source data.
 3. Grounded tutor with deterministic fake provider.
 4. Quiz/test policy and audio limits.
-5. Graph/vector adapters and OpenRouter integration.
+5. Hierarchical graph-vector fusion adapters and OpenRouter integration.
 6. Ingestion jobs and admin review.
 7. Flutter student flow.
 8. Full verification and cross-platform documentation.
@@ -335,7 +335,7 @@ git add backend/src/english7/modules/jobs backend/src/english7/modules/ingestion
 git commit -m "feat: add asynchronous textbook ingestion pipeline"
 ```
 
-### Task 8: Neo4j graph builder and hybrid retrieval
+### Task 8: Neo4j graph builder and hierarchical graph-vector fusion
 
 **Files:**
 - Create: `backend/src/english7/modules/knowledge/contracts.py`
@@ -355,6 +355,8 @@ Verify:
 - graph nodes keep stable SQL identifiers;
 - vector candidates outside configured Units are discarded;
 - graph neighbors enrich but cannot replace source evidence;
+- candidates follow the `Textbook → Unit → Section → Activity → SourceFragment` hierarchy;
+- Reciprocal Rank Fusion combines graph and vector ranks deterministically;
 - low-confidence retrieval returns no grounded context;
 - citations are deduplicated and consistently ordered.
 
@@ -364,7 +366,7 @@ Run: `pytest backend/tests/modules/knowledge backend/tests/modules/retrieval -q`
 
 **Step 3: Implement graph builder and retrieval service**
 
-Use parameterized Cypher only. Create indexes/constraints idempotently. Configure embedding dimensions, vector index name, top-k, thresholds, and graph depth externally.
+Use parameterized Cypher only. Create indexes/constraints idempotently. Configure embedding dimensions, vector index name, top-k, thresholds, graph depth, and RRF constant externally. Keep the vector index in Neo4j and do not add a separate vector database.
 
 **Step 4: Verify integration**
 
@@ -378,7 +380,7 @@ Expected: nodes, relationships, and vector query operate against the container.
 
 ```bash
 git add backend/src/english7/modules/knowledge backend/src/english7/modules/retrieval backend/tests
-git commit -m "feat: add grounded hybrid graph retrieval"
+git commit -m "feat: add hierarchical graph-vector fusion"
 ```
 
 ### Task 9: OpenRouter provider and grounded AI Tutor
@@ -641,4 +643,3 @@ git commit -m "docs: add evaluation and cross-platform setup"
 - Audio in tests can be started no more than twice and the count survives resume.
 - Quiz time and difficulty are policy-driven.
 - Backend and Flutter automated tests pass.
-

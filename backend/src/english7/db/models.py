@@ -93,6 +93,7 @@ class SourceDocument(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     textbook_id: Mapped[UUID | None] = mapped_column(ForeignKey("textbooks.id"))
     original_filename: Mapped[str] = mapped_column(String(512), nullable=False)
+    object_key: Mapped[str] = mapped_column(String(1024), unique=True, nullable=False)
     file_hash: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
     page_count: Mapped[int] = mapped_column(Integer, nullable=False)
     ingestion_version: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -285,4 +286,3 @@ class AuditEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(nullable=False)
     event_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
-

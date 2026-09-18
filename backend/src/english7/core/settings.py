@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr | None = None
     jwt_algorithm: str | None = None
     access_token_minutes: int | None = None
+    worker_poll_interval_seconds: float | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

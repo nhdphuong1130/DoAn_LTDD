@@ -10,6 +10,15 @@ class PresignClient(Protocol):
         expires: timedelta,
     ) -> str: ...
 
+    def put_object(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data,
+        length: int,
+        content_type: str,
+    ): ...
+
 
 class MinioStorage:
     def __init__(
@@ -30,3 +39,19 @@ class MinioStorage:
             expires=self._expiry,
         )
 
+
+class MinioUploadStorage:
+    def __init__(self, client: PresignClient, *, bucket: str) -> None:
+        self._client = client
+        self._bucket = bucket
+
+    def put(self, object_key: str, content: bytes, content_type: str) -> None:
+        from io import BytesIO
+
+        self._client.put_object(
+            self._bucket,
+            object_key,
+            BytesIO(content),
+            len(content),
+            content_type,
+        )

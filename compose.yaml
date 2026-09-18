@@ -14,6 +14,7 @@ services:
       ENGLISH7_JWT_SECRET: ${ENGLISH7_JWT_SECRET}
       ENGLISH7_JWT_ALGORITHM: ${ENGLISH7_JWT_ALGORITHM}
       ENGLISH7_ACCESS_TOKEN_MINUTES: ${ENGLISH7_ACCESS_TOKEN_MINUTES}
+      ENGLISH7_WORKER_POLL_INTERVAL_SECONDS: ${ENGLISH7_WORKER_POLL_INTERVAL_SECONDS}
     ports:
       - "${API_HOST_PORT}:8000"
     command: ["uvicorn", "english7.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -46,6 +47,7 @@ services:
     command: ["python", "-m", "english7.worker"]
     environment:
       ENGLISH7_DATABASE_URL: ${ENGLISH7_DATABASE_URL}
+      ENGLISH7_WORKER_POLL_INTERVAL_SECONDS: ${ENGLISH7_WORKER_POLL_INTERVAL_SECONDS}
     depends_on:
       sqlserver-init:
         condition: service_completed_successfully

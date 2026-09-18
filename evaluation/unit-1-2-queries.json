@@ -1,0 +1,44 @@
+[
+  {
+    "id": "u1-hobby-definition",
+    "query": "What hobby is described in the lesson?",
+    "expected_units": [1],
+    "expected_pages": [10],
+    "in_scope": true
+  },
+  {
+    "id": "u1-hobby-vocabulary",
+    "query": "Explain the hobby vocabulary from Unit 1.",
+    "expected_units": [1],
+    "expected_pages": [12, 13],
+    "in_scope": true
+  },
+  {
+    "id": "u2-healthy-habits",
+    "query": "What should I do to stay healthy?",
+    "expected_units": [2],
+    "expected_pages": [20],
+    "in_scope": true
+  },
+  {
+    "id": "u2-health-vocabulary",
+    "query": "Explain the health problems in Unit 2.",
+    "expected_units": [2],
+    "expected_pages": [22, 23],
+    "in_scope": true
+  },
+  {
+    "id": "outside-algebra",
+    "query": "Solve 2x + 3 = 9.",
+    "expected_units": [],
+    "expected_pages": [],
+    "in_scope": false
+  },
+  {
+    "id": "outside-history",
+    "query": "Who was the first emperor of Rome?",
+    "expected_units": [],
+    "expected_pages": [],
+    "in_scope": false
+  }
+]

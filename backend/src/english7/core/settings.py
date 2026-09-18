@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     openrouter_timeout_seconds: float | None = None
     quiz_duplicate_threshold: float | None = None
     quiz_max_audio_plays: int | None = None
+    ingestion_device: str | None = None
+    layout_model_id: str | None = None
+    layout_confidence_threshold: float | None = None
+    ocr_engine: str | None = None
+    ocr_version: str | None = None
+    ingestion_version: str | None = None
+    source_object_prefix: str | None = None
+    upload_max_bytes: int | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

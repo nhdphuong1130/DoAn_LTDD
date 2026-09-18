@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     ingestion_version: str | None = None
     source_object_prefix: str | None = None
     upload_max_bytes: int | None = None
+    image_upload_prefix: str | None = None
+    image_upload_retention_minutes: int | None = None
+    image_upload_allowed_types: str | None = None
+    ocr_languages: str | None = None
+    ocr_minimum_confidence: float | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

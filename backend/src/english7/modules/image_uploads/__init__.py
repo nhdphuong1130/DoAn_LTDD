@@ -1,0 +1,1 @@
+"""Student image upload processing."""

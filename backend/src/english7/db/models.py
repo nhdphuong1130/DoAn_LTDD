@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
@@ -30,6 +31,13 @@ class AttemptStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"
     EXPIRED = "expired"
+
+
+class ImageUploadStatus(StrEnum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
 
 
 class Role(Base, UUIDPrimaryKeyMixin):
@@ -153,6 +161,30 @@ class MediaAsset(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     checksum: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class StudentImageUpload(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "student_image_uploads"
+    __table_args__ = (
+        CheckConstraint("size_bytes > 0"),
+        CheckConstraint(
+            "ocr_confidence IS NULL OR (ocr_confidence >= 0 AND ocr_confidence <= 1)"
+        ),
+    )
+
+    owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    object_key: Mapped[str] = mapped_column(String(1024), unique=True, nullable=False)
+    checksum: Mapped[str] = mapped_column(String(128), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(30), default=ImageUploadStatus.QUEUED, nullable=False
+    )
+    ocr_text: Mapped[str | None] = mapped_column(Text)
+    ocr_confidence: Mapped[float | None] = mapped_column(Float)
+    failure_code: Mapped[str | None] = mapped_column(String(100))
+    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column()
 
 
 class AudioTrack(Base, UUIDPrimaryKeyMixin, TimestampMixin):

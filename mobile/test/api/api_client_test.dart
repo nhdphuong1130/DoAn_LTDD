@@ -1,0 +1,78 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:english7_mobile/api/api_client.dart';
+import 'package:english7_mobile/api/api_error.dart';
+import 'package:english7_mobile/api/http_transport.dart';
+import 'package:english7_mobile/config/app_config.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+class FakeTransport implements HttpTransport {
+  TransportRequest? request;
+  TransportResponse response;
+
+  FakeTransport(this.response);
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    this.request = request;
+    return response;
+  }
+}
+
+class FakeTokenStore implements TokenStore {
+  final String? token;
+  FakeTokenStore(this.token);
+
+  @override
+  Future<String?> read() async => token;
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<void> write(String token) async {}
+}
+
+void main() {
+  final config = AppConfig.fromEnvironment(const {
+    'API_BASE_URL': 'https://api.example.test',
+  });
+
+  test('attaches bearer token and parses JSON response', () async {
+    final transport = FakeTransport(TransportResponse(
+      200,
+      const {'x-trace-id': 'trace-success'},
+      Uint8List.fromList(utf8.encode('{"status":"ok"}')),
+    ));
+    final client = ApiClient(config, transport, FakeTokenStore('token-123'));
+
+    final response = await client.getJson('/api/v1/health');
+
+    expect(response.body, {'status': 'ok'});
+    expect(response.traceId, 'trace-success');
+    expect(transport.request!.headers['Authorization'], 'Bearer token-123');
+    expect(transport.request!.uri.path, '/api/v1/health');
+  });
+
+  test('maps standard backend errors and preserves trace ID', () async {
+    final transport = FakeTransport(TransportResponse(
+      422,
+      const {'x-trace-id': 'trace-header'},
+      Uint8List.fromList(utf8.encode(jsonEncode({
+        'code': 'out_of_scope',
+        'message': 'No verified evidence',
+        'details': null,
+        'trace_id': 'trace-body',
+      }))),
+    ));
+    final client = ApiClient(config, transport, FakeTokenStore(null));
+
+    await expectLater(
+      client.getJson('/api/v1/tutor/ask'),
+      throwsA(isA<ApiException>()
+          .having((error) => error.code, 'code', 'out_of_scope')
+          .having((error) => error.traceId, 'traceId', 'trace-body')),
+    );
+  });
+}

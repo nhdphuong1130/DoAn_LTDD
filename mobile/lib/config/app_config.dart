@@ -32,8 +32,8 @@ class AppConfig {
   }
 
   factory AppConfig.fromDartDefine() => AppConfig.fromEnvironment(const {
-        'API_BASE_URL': String.fromEnvironment('API_BASE_URL'),
-      });
+    'API_BASE_URL': String.fromEnvironment('API_BASE_URL'),
+  });
 
   Uri resolve(String path) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';

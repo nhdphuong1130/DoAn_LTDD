@@ -67,8 +67,8 @@ class ApiClient {
         code: decoded['code'] as String? ?? 'http_error',
         message: decoded['message'] as String? ?? 'API request failed',
         details: decoded['details'],
-        traceId: decoded['trace_id'] as String? ??
-            response.headers['x-trace-id'],
+        traceId:
+            decoded['trace_id'] as String? ?? response.headers['x-trace-id'],
         statusCode: response.statusCode,
       );
     }

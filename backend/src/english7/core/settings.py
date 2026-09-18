@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     service_name: str = "english7-api"
     api_prefix: str = "/api/v1"
     database_url: SecretStr | None = None
+    jwt_secret: SecretStr | None = None
+    jwt_algorithm: str | None = None
+    access_token_minutes: int | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

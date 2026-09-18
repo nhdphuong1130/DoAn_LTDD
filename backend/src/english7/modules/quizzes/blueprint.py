@@ -36,3 +36,6 @@ class BlueprintSelector:
             "No active quiz policy supports this duration",
             422,
         )
+
+    def list_policies(self) -> list[QuizBlueprintPolicy]:
+        return self._repository.list_active()

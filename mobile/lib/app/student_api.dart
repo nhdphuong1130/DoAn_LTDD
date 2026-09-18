@@ -38,6 +38,19 @@ class QuizSetup {
   const QuizSetup(this.durationMinutes, this.difficulty);
 }
 
+class QuizOptions {
+  final List<int> presetDurations;
+  final int customMinimumMinutes;
+  final int customMaximumMinutes;
+  final int maxAudioPlays;
+  const QuizOptions(
+    this.presetDurations,
+    this.customMinimumMinutes,
+    this.customMaximumMinutes,
+    this.maxAudioPlays,
+  );
+}
+
 class QuizQuestion {
   final String id;
   final String prompt;
@@ -66,6 +79,7 @@ class QuizResult {
 abstract interface class StudentApi {
   Future<void> login(String email, String password);
   Future<List<LessonSummary>> loadLessons();
+  Future<QuizOptions> loadQuizOptions();
   Future<TutorResult> askTutor(TutorQuery query);
   Future<QuizSession> createQuiz(QuizSetup setup);
   Future<QuizResult> submitQuiz(String quizId);

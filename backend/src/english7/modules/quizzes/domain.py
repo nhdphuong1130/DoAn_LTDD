@@ -32,3 +32,11 @@ class QuizDraft:
     duration_minutes: int
     difficulty: str
     question_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class QuizOptions:
+    preset_durations: tuple[int, ...]
+    custom_minimum_minutes: int
+    custom_maximum_minutes: int
+    max_audio_plays: int

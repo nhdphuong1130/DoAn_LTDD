@@ -14,13 +14,26 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
-  int _duration = 15;
+  QuizOptions? _options;
+  int? _duration;
   String _difficulty = 'adaptive';
   QuizSession? _session;
   QuizResult? _result;
   int _remainingSeconds = 0;
-  int _remainingPlays = 2;
+  int _remainingPlays = 0;
   Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.api.loadQuizOptions().then((options) {
+      if (!mounted) return;
+      setState(() {
+        _options = options;
+        _duration = options.presetDurations.first;
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -30,13 +43,13 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> _start() async {
     final session = await widget.api.createQuiz(
-      QuizSetup(_duration, _difficulty),
+      QuizSetup(_duration!, _difficulty),
     );
     if (!mounted) return;
     setState(() {
       _session = session;
       _remainingSeconds = session.durationMinutes * 60;
-      _remainingPlays = 2;
+      _remainingPlays = _options!.maxAudioPlays;
       _result = null;
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -99,6 +112,9 @@ class _QuizScreenState extends State<QuizScreen> {
         ],
       );
     }
+    if (_options == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -110,13 +126,31 @@ class _QuizScreenState extends State<QuizScreen> {
         Wrap(
           spacing: 8,
           children: [
-            for (final duration in const [15, 45, 60])
+            for (final duration in _options!.presetDurations)
               ChoiceChip(
                 label: Text('$duration phút'),
                 selected: _duration == duration,
                 onSelected: (_) => setState(() => _duration = duration),
               ),
           ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('custom-duration'),
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: 'Thời gian tùy chỉnh',
+            helperText:
+                '${_options!.customMinimumMinutes}–${_options!.customMaximumMinutes} phút',
+          ),
+          onChanged: (value) {
+            final parsed = int.tryParse(value);
+            if (parsed != null &&
+                parsed >= _options!.customMinimumMinutes &&
+                parsed <= _options!.customMaximumMinutes) {
+              setState(() => _duration = parsed);
+            }
+          },
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(

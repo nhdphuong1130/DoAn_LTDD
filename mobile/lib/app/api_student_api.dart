@@ -42,6 +42,17 @@ class ApiStudentApi implements StudentApi {
   }
 
   @override
+  Future<QuizOptions> loadQuizOptions() async {
+    final response = await _client.getJson('/api/v1/quizzes/options');
+    return QuizOptions(
+      (response.body['preset_durations'] as List<dynamic>).cast<int>(),
+      response.body['custom_minimum_minutes'] as int,
+      response.body['custom_maximum_minutes'] as int,
+      response.body['max_audio_plays'] as int,
+    );
+  }
+
+  @override
   Future<TutorResult> askTutor(TutorQuery query) async {
     try {
       final response = await _client.postJson('/api/v1/tutor/ask', {

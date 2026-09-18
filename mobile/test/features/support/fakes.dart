@@ -8,6 +8,10 @@ class FakeStudentApi implements StudentApi {
   Future<void> login(String email, String password) async {}
 
   @override
+  Future<QuizOptions> loadQuizOptions() async =>
+      const QuizOptions([15, 45, 60], 10, 90, 2);
+
+  @override
   Future<List<LessonSummary>> loadLessons() async => const [
     LessonSummary(1, 'Hobbies', 'Getting Started'),
     LessonSummary(2, 'Healthy Living', 'A Closer Look'),

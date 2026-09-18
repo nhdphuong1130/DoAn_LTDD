@@ -40,11 +40,11 @@ void main() {
   });
 
   test('attaches bearer token and parses JSON response', () async {
-    final transport = FakeTransport(TransportResponse(
-      200,
-      const {'x-trace-id': 'trace-success'},
-      Uint8List.fromList(utf8.encode('{"status":"ok"}')),
-    ));
+    final transport = FakeTransport(
+      TransportResponse(200, const {
+        'x-trace-id': 'trace-success',
+      }, Uint8List.fromList(utf8.encode('{"status":"ok"}'))),
+    );
     final client = ApiClient(config, transport, FakeTokenStore('token-123'));
 
     final response = await client.getJson('/api/v1/health');
@@ -56,23 +56,31 @@ void main() {
   });
 
   test('maps standard backend errors and preserves trace ID', () async {
-    final transport = FakeTransport(TransportResponse(
-      422,
-      const {'x-trace-id': 'trace-header'},
-      Uint8List.fromList(utf8.encode(jsonEncode({
-        'code': 'out_of_scope',
-        'message': 'No verified evidence',
-        'details': null,
-        'trace_id': 'trace-body',
-      }))),
-    ));
+    final transport = FakeTransport(
+      TransportResponse(
+        422,
+        const {'x-trace-id': 'trace-header'},
+        Uint8List.fromList(
+          utf8.encode(
+            jsonEncode({
+              'code': 'out_of_scope',
+              'message': 'No verified evidence',
+              'details': null,
+              'trace_id': 'trace-body',
+            }),
+          ),
+        ),
+      ),
+    );
     final client = ApiClient(config, transport, FakeTokenStore(null));
 
     await expectLater(
       client.getJson('/api/v1/tutor/ask'),
-      throwsA(isA<ApiException>()
-          .having((error) => error.code, 'code', 'out_of_scope')
-          .having((error) => error.traceId, 'traceId', 'trace-body')),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.code, 'code', 'out_of_scope')
+            .having((error) => error.traceId, 'traceId', 'trace-body'),
+      ),
     );
   });
 }

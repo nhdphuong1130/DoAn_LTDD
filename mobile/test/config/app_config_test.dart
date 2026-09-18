@@ -15,7 +15,9 @@ void main() {
     });
 
     expect(config.apiBaseUrl.toString(), 'http://10.0.2.2:8000');
-    expect(config.resolve('/api/v1/health').toString(),
-        'http://10.0.2.2:8000/api/v1/health');
+    expect(
+      config.resolve('/api/v1/health').toString(),
+      'http://10.0.2.2:8000/api/v1/health',
+    );
   });
 }

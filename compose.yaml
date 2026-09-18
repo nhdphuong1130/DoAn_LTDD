@@ -10,6 +10,7 @@ services:
     environment:
       ENGLISH7_SERVICE_NAME: ${ENGLISH7_SERVICE_NAME}
       ENGLISH7_API_PREFIX: ${ENGLISH7_API_PREFIX}
+      ENGLISH7_DATABASE_URL: ${ENGLISH7_DATABASE_URL}
     ports:
       - "${API_HOST_PORT}:8000"
     command: ["uvicorn", "english7.main:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -26,8 +27,8 @@ services:
       retries: 5
       start_period: 10s
     depends_on:
-      sqlserver:
-        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
       neo4j:
         condition: service_healthy
       minio:
@@ -40,9 +41,11 @@ services:
       - path: .env
         required: false
     command: ["python", "-m", "english7.worker"]
+    environment:
+      ENGLISH7_DATABASE_URL: ${ENGLISH7_DATABASE_URL}
     depends_on:
-      sqlserver:
-        condition: service_healthy
+      sqlserver-init:
+        condition: service_completed_successfully
       neo4j:
         condition: service_healthy
       minio:
@@ -68,6 +71,21 @@ services:
       timeout: 5s
       retries: 15
       start_period: 30s
+
+  sqlserver-init:
+    image: ${SQLSERVER_IMAGE}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: ${SQLSERVER_SA_PASSWORD}
+      SQLSERVER_DATABASE: ${SQLSERVER_DATABASE}
+    entrypoint:
+      - /bin/bash
+      - -ec
+      - |
+        /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$${MSSQL_SA_PASSWORD}" -C \
+          -Q "IF DB_ID(N'$${SQLSERVER_DATABASE}') IS NULL CREATE DATABASE [$${SQLSERVER_DATABASE}]"
 
   neo4j:
     image: ${NEO4J_IMAGE}

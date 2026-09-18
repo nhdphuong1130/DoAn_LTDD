@@ -6,9 +6,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends freetds-bin tdsodbc unixodbc \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml ./
 COPY src ./src
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[test]"
+
+COPY alembic.ini ./
+COPY alembic ./alembic
+COPY tests ./tests
 
 COPY docker/entrypoint.sh /usr/local/bin/english7-entrypoint
 RUN chmod +x /usr/local/bin/english7-entrypoint

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     openrouter_endpoint: str | None = None
     openrouter_model: str | None = None
     openrouter_timeout_seconds: float | None = None
+    openrouter_embedding_endpoint: str | None = None
+    openrouter_embedding_model: str | None = None
     quiz_duplicate_threshold: float | None = None
     quiz_max_audio_plays: int | None = None
     ingestion_device: str | None = None
@@ -53,6 +55,7 @@ class Settings(BaseSettings):
     minio_access_key: str | None = None
     minio_secret_key: SecretStr | None = None
     minio_upload_bucket: str | None = None
+    tutor_query_max_characters: int | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

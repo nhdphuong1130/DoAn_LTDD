@@ -122,3 +122,50 @@ class OpenRouterProvider:
             if isinstance(error, AIProviderError):
                 raise
             raise AIProviderError("ai_provider_failed") from None
+
+
+class OpenRouterEmbedder:
+    def __init__(
+        self,
+        *,
+        http: JSONHTTPClient,
+        api_key: SecretStr,
+        endpoint: str,
+        model: str,
+        dimensions: int,
+        timeout_seconds: float,
+    ) -> None:
+        if not endpoint.startswith("https://"):
+            raise ValueError("OpenRouter endpoint must use HTTPS")
+        if not model.strip() or dimensions <= 0 or timeout_seconds <= 0:
+            raise ValueError("Embedding model, dimensions, and timeout are required")
+        self._http = http
+        self._api_key = api_key
+        self._endpoint = endpoint
+        self._model = model
+        self._dimensions = dimensions
+        self._timeout = timeout_seconds
+
+    def embed(self, text: str) -> list[float]:
+        try:
+            response = self._http.post_json(
+                self._endpoint,
+                headers={
+                    "Authorization": f"Bearer {self._api_key.get_secret_value()}",
+                    "Content-Type": "application/json",
+                },
+                payload={
+                    "model": self._model,
+                    "input": text,
+                    "dimensions": self._dimensions,
+                },
+                timeout_seconds=self._timeout,
+            )
+            vector = [float(value) for value in response["data"][0]["embedding"]]
+            if len(vector) != self._dimensions:
+                raise ValueError("Unexpected embedding dimensions")
+            return vector
+        except Exception:
+            raise AIProviderError(
+                "embedding_provider_failed", "Embedding provider request failed"
+            ) from None

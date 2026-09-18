@@ -9,7 +9,11 @@ from english7.modules.ai.contracts import (
     Evidence,
     Language,
 )
-from english7.modules.ai.openrouter import AIProviderError, OpenRouterProvider
+from english7.modules.ai.openrouter import (
+    AIProviderError,
+    OpenRouterEmbedder,
+    OpenRouterProvider,
+)
 
 
 class FakeHTTP:
@@ -87,3 +91,44 @@ def test_provider_never_exposes_api_key_in_errors_or_logs(caplog) -> None:
     assert secret not in str(captured.value)
     assert secret not in caplog.text
     assert captured.value.code == "ai_provider_failed"
+
+
+def test_embedder_uses_configured_openrouter_embedding_model() -> None:
+    http = FakeHTTP({"data": [{"embedding": [0.1, 0.2, 0.3]}]})
+    embedder = OpenRouterEmbedder(
+        http=http,
+        api_key=SecretStr("embedding-secret"),
+        endpoint="https://openrouter.example/api/v1/embeddings",
+        model="configured/embedding-model",
+        dimensions=3,
+        timeout_seconds=12,
+    )
+
+    result = embedder.embed("healthy living")
+
+    url, headers, payload, timeout = http.call
+    assert url.endswith("/embeddings")
+    assert headers["Authorization"] == "Bearer embedding-secret"
+    assert payload == {
+        "model": "configured/embedding-model",
+        "input": "healthy living",
+        "dimensions": 3,
+    }
+    assert timeout == 12
+    assert result == [0.1, 0.2, 0.3]
+
+
+def test_embedder_rejects_wrong_vector_dimensions() -> None:
+    embedder = OpenRouterEmbedder(
+        http=FakeHTTP({"data": [{"embedding": [0.1]}]}),
+        api_key=SecretStr("embedding-secret"),
+        endpoint="https://openrouter.example/api/v1/embeddings",
+        model="configured/embedding-model",
+        dimensions=3,
+        timeout_seconds=12,
+    )
+
+    with pytest.raises(AIProviderError) as captured:
+        embedder.embed("healthy living")
+
+    assert captured.value.code == "embedding_provider_failed"

@@ -14,8 +14,9 @@ router = APIRouter(prefix="/tutor", tags=["tutor"])
 
 
 class AskTutorRequest(BaseModel):
-    question: str = Field(min_length=1, max_length=2000)
+    question: str = Field(default="", max_length=2000)
     language: Language
+    upload_id: UUID | None = None
 
 
 class CitationResponse(BaseModel):
@@ -45,7 +46,12 @@ def ask_tutor(
     _user: Annotated[AuthUser, Depends(get_current_user)],
     service: Annotated[TutorService, Depends(get_tutor_service)],
 ) -> TutorResponse:
-    answer = service.ask(payload.question, payload.language)
+    answer = service.ask(
+        payload.question,
+        payload.language,
+        user_id=_user.id,
+        upload_id=payload.upload_id,
+    )
     return TutorResponse(
         answer=answer.answer,
         language=answer.language,

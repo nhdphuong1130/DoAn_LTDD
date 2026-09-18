@@ -55,7 +55,7 @@ class SQLAlchemyTextbookRepository:
         with self._session_factory() as session:
             rows = session.scalars(
                 select(Unit)
-                .where(Unit.is_published.is_(True))
+                .where(Unit.is_published == True)
                 .order_by(Unit.number)
                 .offset(offset)
                 .limit(limit)
@@ -84,7 +84,7 @@ class SQLAlchemyTextbookRepository:
                 self._fragment_query()
                 .where(
                     Unit.id == unit_id,
-                    SourceFragment.is_published.is_(True),
+                    SourceFragment.is_published == True,
                     SourceFragment.review_status == ReviewStatus.VERIFIED,
                 )
                 .order_by(SourceFragment.pdf_page, SourceFragment.y, SourceFragment.x)

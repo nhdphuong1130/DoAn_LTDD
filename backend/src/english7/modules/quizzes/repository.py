@@ -28,7 +28,7 @@ class SQLAlchemyBlueprintRepository:
         with self._session_factory() as session:
             rows = session.scalars(
                 select(QuizBlueprint)
-                .where(QuizBlueprint.is_active.is_(True))
+                .where(QuizBlueprint.is_active == True)
                 .order_by(QuizBlueprint.duration_minutes, QuizBlueprint.name)
             )
             policies = []

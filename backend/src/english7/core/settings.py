@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     retrieval_rrf_constant: int | None = None
     retrieval_max_context_fragments: int | None = None
     retrieval_allowed_units: str | None = None
+    openrouter_api_key: SecretStr | None = None
+    openrouter_endpoint: str | None = None
+    openrouter_model: str | None = None
+    openrouter_timeout_seconds: float | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

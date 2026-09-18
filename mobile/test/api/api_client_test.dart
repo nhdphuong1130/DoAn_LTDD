@@ -37,6 +37,8 @@ class FakeTokenStore implements TokenStore {
 void main() {
   final config = AppConfig.fromEnvironment(const {
     'API_BASE_URL': 'https://api.example.test',
+    'IMAGE_POLL_INTERVAL_MS': '250',
+    'IMAGE_POLL_MAX_ATTEMPTS': '20',
   });
 
   test('attaches bearer token and parses JSON response', () async {
@@ -82,5 +84,34 @@ void main() {
             .having((error) => error.traceId, 'traceId', 'trace-body'),
       ),
     );
+  });
+
+  test('builds authenticated multipart image request', () async {
+    final transport = FakeTransport(
+      TransportResponse(
+        202,
+        const {},
+        Uint8List.fromList(utf8.encode('{"id":"upload-1"}')),
+      ),
+    );
+    final client = ApiClient(config, transport, FakeTokenStore('token-123'));
+
+    await client.postMultipart(
+      '/api/v1/tutor/images',
+      fieldName: 'image',
+      filename: 'exercise.png',
+      mediaType: 'image/png',
+      bytes: Uint8List.fromList([1, 2, 3]),
+    );
+
+    final request = transport.request!;
+    expect(request.headers['Authorization'], 'Bearer token-123');
+    expect(
+      request.headers['Content-Type'],
+      startsWith('multipart/form-data; boundary='),
+    );
+    final body = latin1.decode(request.body!);
+    expect(body, contains('name="image"; filename="exercise.png"'));
+    expect(body, contains('Content-Type: image/png'));
   });
 }

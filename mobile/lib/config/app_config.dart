@@ -8,8 +8,14 @@ class ConfigurationException implements Exception {
 
 class AppConfig {
   final Uri apiBaseUrl;
+  final Duration imagePollInterval;
+  final int imagePollMaxAttempts;
 
-  const AppConfig._(this.apiBaseUrl);
+  const AppConfig._(
+    this.apiBaseUrl,
+    this.imagePollInterval,
+    this.imagePollMaxAttempts,
+  );
 
   factory AppConfig.fromEnvironment(Map<String, String> environment) {
     final raw = environment['API_BASE_URL']?.trim();
@@ -28,11 +34,33 @@ class AppConfig {
     final normalizedPath = parsed.path == '/'
         ? ''
         : parsed.path.replaceFirst(RegExp(r'/+$'), '');
-    return AppConfig._(parsed.replace(path: normalizedPath));
+    final pollMilliseconds = int.tryParse(
+      environment['IMAGE_POLL_INTERVAL_MS'] ?? '',
+    );
+    final pollAttempts = int.tryParse(
+      environment['IMAGE_POLL_MAX_ATTEMPTS'] ?? '',
+    );
+    if (pollMilliseconds == null ||
+        pollMilliseconds <= 0 ||
+        pollAttempts == null ||
+        pollAttempts <= 0) {
+      throw const ConfigurationException(
+        'IMAGE_POLL_INTERVAL_MS and IMAGE_POLL_MAX_ATTEMPTS must be positive integers',
+      );
+    }
+    return AppConfig._(
+      parsed.replace(path: normalizedPath),
+      Duration(milliseconds: pollMilliseconds),
+      pollAttempts,
+    );
   }
 
   factory AppConfig.fromDartDefine() => AppConfig.fromEnvironment(const {
     'API_BASE_URL': String.fromEnvironment('API_BASE_URL'),
+    'IMAGE_POLL_INTERVAL_MS': String.fromEnvironment('IMAGE_POLL_INTERVAL_MS'),
+    'IMAGE_POLL_MAX_ATTEMPTS': String.fromEnvironment(
+      'IMAGE_POLL_MAX_ATTEMPTS',
+    ),
   });
 
   Uri resolve(String path) {

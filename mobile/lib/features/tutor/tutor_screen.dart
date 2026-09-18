@@ -45,7 +45,13 @@ class _TutorScreenState extends State<TutorScreen> {
     });
     try {
       final result = await widget.api.askTutor(
-        TutorQuery(_question.text.trim(), _language, _image?.path),
+        TutorQuery(
+          _question.text.trim(),
+          _language,
+          _image == null
+              ? null
+              : TutorImage(_image!.name, _image!.bytes, _image!.mediaType),
+        ),
       );
       if (mounted) setState(() => _result = result);
     } on TutorRefusal {

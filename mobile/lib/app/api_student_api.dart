@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import '../api/api_client.dart';
 import '../api/api_error.dart';
 import 'student_api.dart';
@@ -6,7 +9,17 @@ class ApiStudentApi implements StudentApi {
   final ApiClient _client;
   final TokenStore _tokens;
 
-  const ApiStudentApi(this._client, this._tokens);
+  final Duration imagePollInterval;
+  final int imagePollMaxAttempts;
+  final Future<void> Function(Duration) _delay;
+
+  ApiStudentApi(
+    this._client,
+    this._tokens, {
+    required this.imagePollInterval,
+    required this.imagePollMaxAttempts,
+    Future<void> Function(Duration)? delay,
+  }) : _delay = delay ?? Future<void>.delayed;
 
   @override
   Future<void> login(String email, String password) async {
@@ -55,10 +68,47 @@ class ApiStudentApi implements StudentApi {
   @override
   Future<TutorResult> askTutor(TutorQuery query) async {
     try {
+      String? uploadId;
+      if (query.image != null) {
+        final uploaded = await _client.postMultipart(
+          '/api/v1/tutor/images',
+          fieldName: 'image',
+          filename: query.image!.name,
+          mediaType: query.image!.mediaType,
+          bytes: Uint8List.fromList(query.image!.bytes),
+        );
+        uploadId = uploaded.body['id'] as String;
+        var uploadStatus = uploaded.body;
+        for (var attempt = 0; attempt < imagePollMaxAttempts; attempt++) {
+          final status = uploadStatus['status'] as String?;
+          if (status == 'ready') break;
+          if (status == 'failed') {
+            throw ApiException(
+              code:
+                  uploadStatus['failure_code'] as String? ??
+                  'image_processing_failed',
+              message: 'Image processing failed',
+              statusCode: 422,
+            );
+          }
+          await _delay(imagePollInterval);
+          uploadStatus = (await _client.getJson(
+            '/api/v1/tutor/images/$uploadId',
+          )).body;
+          if (attempt == imagePollMaxAttempts - 1 &&
+              uploadStatus['status'] != 'ready') {
+            throw const ApiException(
+              code: 'image_processing_timeout',
+              message: 'Image processing did not finish in time',
+              statusCode: 408,
+            );
+          }
+        }
+      }
       final response = await _client.postJson('/api/v1/tutor/ask', {
         'question': query.question,
         'language': query.language == TutorLanguage.vietnamese ? 'vi' : 'en',
-        if (query.imagePath != null) 'image_path': query.imagePath,
+        'upload_id': ?uploadId,
       });
       final citations =
           response.body['citations'] as List<dynamic>? ?? const [];

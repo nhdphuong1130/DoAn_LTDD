@@ -15,6 +15,8 @@ void main() {
   final api = ApiStudentApi(
     ApiClient(config, IOHttpTransport(), tokens),
     tokens,
+    imagePollInterval: config.imagePollInterval,
+    imagePollMaxAttempts: config.imagePollMaxAttempts,
   );
   runApp(English7App(api: api, imageSelector: GalleryImageSelector()));
 }

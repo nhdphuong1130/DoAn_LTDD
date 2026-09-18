@@ -36,6 +36,41 @@ class ApiClient {
     return _requestJson('POST', path, payload);
   }
 
+  Future<ApiResponse<Map<String, Object?>>> postMultipart(
+    String path, {
+    required String fieldName,
+    required String filename,
+    required String mediaType,
+    required Uint8List bytes,
+  }) async {
+    final token = await _tokens.read();
+    final boundary =
+        'english7-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}';
+    final safeFilename = filename.replaceAll(RegExp(r'[\r\n"]'), '_');
+    final prefix = utf8.encode(
+      '--$boundary\r\n'
+      'Content-Disposition: form-data; name="$fieldName"; filename="$safeFilename"\r\n'
+      'Content-Type: $mediaType\r\n\r\n',
+    );
+    final suffix = utf8.encode('\r\n--$boundary--\r\n');
+    final body = Uint8List(prefix.length + bytes.length + suffix.length)
+      ..setRange(0, prefix.length, prefix)
+      ..setRange(prefix.length, prefix.length + bytes.length, bytes)
+      ..setRange(
+        prefix.length + bytes.length,
+        prefix.length + bytes.length + suffix.length,
+        suffix,
+      );
+    final response = await _transport.send(
+      TransportRequest('POST', _config.resolve(path), {
+        'Accept': 'application/json',
+        'Content-Type': 'multipart/form-data; boundary=$boundary',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      }, body),
+    );
+    return _decodeResponse(response);
+  }
+
   Future<ApiResponse<Map<String, Object?>>> _requestJson(
     String method,
     String path, [
@@ -53,6 +88,12 @@ class ApiClient {
     final response = await _transport.send(
       TransportRequest(method, _config.resolve(path), headers, body),
     );
+    return _decodeResponse(response);
+  }
+
+  ApiResponse<Map<String, Object?>> _decodeResponse(
+    TransportResponse response,
+  ) {
     final decoded = jsonDecode(utf8.decode(response.body));
     if (decoded is! Map<String, dynamic>) {
       throw ApiException(

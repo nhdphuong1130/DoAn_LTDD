@@ -40,6 +40,7 @@ void main() {
 
     expect(find.text('Exercise every day.'), findsOneWidget);
     expect(find.text('SGK trang 20 (PDF 22)'), findsOneWidget);
+    expect(api.tutorQueries.single.image?.name, 'textbook-page.jpg');
   });
 
   testWidgets('shows stable refusal when no verified evidence exists', (

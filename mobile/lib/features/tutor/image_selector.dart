@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:image_picker/image_picker.dart';
 
 class SelectedImage {
   final String name;
-  final String path;
-  const SelectedImage(this.name, [this.path = '']);
+  final Uint8List bytes;
+  final String mediaType;
+  const SelectedImage(this.name, this.bytes, this.mediaType);
 }
 
 abstract interface class ImageSelector {
@@ -18,6 +21,15 @@ class GalleryImageSelector implements ImageSelector {
   @override
   Future<SelectedImage?> select() async {
     final image = await _picker.pickImage(source: ImageSource.gallery);
-    return image == null ? null : SelectedImage(image.name, image.path);
+    if (image == null) return null;
+    final mediaType = image.mimeType ?? _mediaTypeForName(image.name);
+    return SelectedImage(image.name, await image.readAsBytes(), mediaType);
+  }
+
+  static String _mediaTypeForName(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum TutorLanguage { vietnamese, english }
 
 class LessonSummary {
@@ -14,11 +16,18 @@ class SourceReference {
   const SourceReference(this.fragmentId, this.pdfPage, this.printedPage);
 }
 
+class TutorImage {
+  final String name;
+  final Uint8List bytes;
+  final String mediaType;
+  const TutorImage(this.name, this.bytes, this.mediaType);
+}
+
 class TutorQuery {
   final String question;
   final TutorLanguage language;
-  final String? imagePath;
-  const TutorQuery(this.question, this.language, this.imagePath);
+  final TutorImage? image;
+  const TutorQuery(this.question, this.language, this.image);
 }
 
 class TutorResult {

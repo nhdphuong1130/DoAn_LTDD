@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:english7_mobile/app/student_api.dart';
 import 'package:english7_mobile/features/tutor/image_selector.dart';
 
 class FakeStudentApi implements StudentApi {
   bool refuseTutor = false;
+  final tutorQueries = <TutorQuery>[];
 
   @override
   Future<void> login(String email, String password) async {}
@@ -19,6 +22,7 @@ class FakeStudentApi implements StudentApi {
 
   @override
   Future<TutorResult> askTutor(TutorQuery query) async {
+    tutorQueries.add(query);
     if (refuseTutor) throw const TutorRefusal('out_of_scope');
     return TutorResult(
       query.language == TutorLanguage.vietnamese
@@ -42,6 +46,9 @@ class FakeStudentApi implements StudentApi {
 
 class FakeImageSelector implements ImageSelector {
   @override
-  Future<SelectedImage?> select() async =>
-      const SelectedImage('textbook-page.jpg');
+  Future<SelectedImage?> select() async => SelectedImage(
+    'textbook-page.jpg',
+    Uint8List.fromList([1, 2, 3]),
+    'image/jpeg',
+  );
 }

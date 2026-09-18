@@ -8,6 +8,8 @@ API-first learning application grounded exclusively in verified content from
 - FastAPI API/worker, SQL Server, Neo4j và MinIO qua Docker Compose.
 - Hierarchical Graph-Vector Fusion: vector candidates, graph traversal và RRF.
 - OpenRouter chỉ nhận context SGK đã xác minh và citation được backend kiểm tra.
+- Image Tutor Runtime: học sinh tải ảnh bài tập (JPEG/PNG/WebP); worker chạy DocLayout-YOLO và PaddleOCR trích xuất câu hỏi đóng vai trò query signal và chỉ trả lời khi có bằng chứng SGK Unit 1–2.
+- Worker hỗ trợ suy luận linh hoạt (`auto / cpu / cuda`), vận hành CPU trên Windows và GPU NVIDIA trên Linux.
 - Flutter/Dart cho Android, cấu hình API qua `--dart-define`.
 
 Phạm vi tri thức là Unit 1–2. PDF/MP3 gốc không được commit; Git chỉ chứa manifest

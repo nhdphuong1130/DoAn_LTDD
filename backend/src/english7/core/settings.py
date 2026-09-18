@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     openrouter_endpoint: str | None = None
     openrouter_model: str | None = None
     openrouter_timeout_seconds: float | None = None
+    quiz_duplicate_threshold: float | None = None
+    quiz_max_audio_plays: int | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

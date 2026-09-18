@@ -1,0 +1,2 @@
+"""Media storage adapters."""
+

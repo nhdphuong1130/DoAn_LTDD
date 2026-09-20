@@ -5,16 +5,23 @@ set -eu
 
 echo "Auditing compose configurations..."
 
+ENV_FLAG=""
+if [ -f .env ]; then
+  ENV_FLAG="--env-file .env"
+elif [ -f .env.example ]; then
+  ENV_FLAG="--env-file .env.example"
+fi
+
 if [ -f compose.yaml ]; then
-  docker compose -f compose.yaml config --quiet
+  docker compose $ENV_FLAG -f compose.yaml config --quiet
 fi
 
 if [ -f compose.integration.yaml ]; then
-  docker compose -f compose.integration.yaml config --quiet
+  docker compose $ENV_FLAG -f compose.integration.yaml config --quiet
 fi
 
 if [ -f infra/docker/compose.yaml ]; then
-  docker compose -f infra/docker/compose.yaml config --quiet
+  docker compose $ENV_FLAG -f infra/docker/compose.yaml config --quiet
 fi
 
 echo "Docker compose configurations validated cleanly."

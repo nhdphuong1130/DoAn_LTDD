@@ -36,6 +36,27 @@ class ApiClient {
     return _requestJson('POST', path, payload);
   }
 
+  Future<ApiResponse<Map<String, Object?>>> patchJson(
+    String path,
+    Map<String, Object?> payload,
+  ) {
+    return _requestJson('PATCH', path, payload);
+  }
+
+  Future<void> postNoContent(String path, Map<String, Object?> payload) async {
+    final token = await _tokens.read();
+    final response = await _transport.send(
+      TransportRequest('POST', _config.resolve(path), {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      }, Uint8List.fromList(utf8.encode(jsonEncode(payload)))),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decodeResponse(response);
+    }
+  }
+
   Future<ApiResponse<Map<String, Object?>>> postMultipart(
     String path, {
     required String fieldName,

@@ -23,6 +23,9 @@ docker compose --env-file .env run --rm api alembic upgrade head
 docker compose --env-file .env up -d api worker
 ```
 
+> [!NOTE]
+> Lệnh `alembic upgrade head` sẽ tạo mới hoặc nâng cấp các cột thông tin cá nhân mở rộng (`full_name`, `date_of_birth`, `gender`, `school_name`, `class_name`) trong bảng `users` với định dạng Unicode (NVARCHAR).
+
 API Swagger nằm tại `http://localhost:<API_HOST_PORT>/docs`. DBeaver kết nối
 SQL Server qua `localhost:<SQLSERVER_HOST_PORT>` bằng thông tin trong `.env`.
 
@@ -71,6 +74,100 @@ docker compose --env-file .env run --rm \
   -e NEO4J_TEST_PASSWORD=<NEO4J_PASSWORD> \
   api pytest -q
 ```
+
+## Vận hành Knowledge Graph Phase 1
+
+### 1. Import ontology đã review
+
+Migrate database và import manifest. UUID của fragment/unit trong manifest phải
+tồn tại trong SQL Server; mọi assertion `verified` phải trỏ tới evidence đã
+review và publish.
+
+```bash
+docker compose --env-file .env run --rm \
+  -v "$PWD/data:/work/data:ro" api \
+  python -m english7.cli import-ontology \
+  --manifest /work/data/manifests/knowledge-ontology.example.json
+```
+
+Importer là idempotent theo `manifest_id` và checksum. Không sửa nội dung của
+một manifest đã import; hãy tạo version/manifest ID mới.
+
+### 2. Preload và smoke test embedding model
+
+API dùng volume `fastembed-cache`, nên model tải một lần được tái sử dụng giữa
+các lần chạy container. Chạy smoke test trước maintenance window:
+
+```bash
+docker compose --env-file .env run --rm api python -c \
+  "import os; from fastembed import TextEmbedding; m=TextEmbedding(model_name=os.environ['ENGLISH7_EMBEDDING_MODEL'], cache_dir=os.environ['ENGLISH7_EMBEDDING_CACHE_DIR']); print(len(next(m.embed(['sở thích và healthy habits']))))"
+```
+
+Kết quả phải bằng `ENGLISH7_EMBEDDING_DIMENSIONS` (mặc định `384`). Lỗi tải
+model, sai số chiều hoặc vector không hữu hạn phải được xử lý trước khi build.
+
+### 3. Benchmark model song ngữ
+
+Chuẩn bị JSON gồm `cases` (`id`, `query`, `expected_candidate_ids`,
+`expected_units`) và `candidates` (`id`, `text`, `unit_number`), sau đó chạy:
+
+```bash
+docker compose --env-file .env run --rm \
+  -v "$PWD/data:/work/data:ro" api sh -ec \
+  'python -m english7.cli benchmark-embeddings \
+    --cases /work/data/benchmarks/embedding-cases.json \
+    --model "$ENGLISH7_EMBEDDING_MODEL" \
+    --model-version "$ENGLISH7_EMBEDDING_MODEL_VERSION" \
+    --dimensions "$ENGLISH7_EMBEDDING_DIMENSIONS" --top-k 5'
+```
+
+Lưu report JSON cùng model/version. So sánh ít nhất `recall_at_k`,
+`unit_accuracy`, `p95_latency_ms` và `peak_rss_mb`; không đổi model chỉ dựa trên
+một chỉ số retrieval.
+
+### 4. Build, validate và activate candidate
+
+```bash
+docker compose --env-file .env run --rm api \
+  python -m english7.cli build-knowledge-graph \
+  --ontology-version english7-v1
+```
+
+Lệnh dựng graph dưới `build_id` mới, tạo hai vector index riêng, đợi index
+`ONLINE`, đối soát expected/actual counts, orphan, duplicate, provenance và số
+chiều embedding. Chỉ report có `status: active` và không có validation failure
+mới được cutover. JSON đầu ra ghi lại checksum, ontology/model identity, counts
+và tên index để audit. Cùng checksum + ontology + embedding identity sẽ tái sử
+dụng build active thay vì dựng lại.
+
+### 5. Failure và rollback
+
+Candidate thất bại được đánh dấu `failed`; transaction activation không chạy,
+vì vậy build `active` trước đó vẫn nguyên vẹn. Sau một activation thành công,
+build trước được giữ ở trạng thái `retired` cùng các node/index theo `build_id`
+để phục hồi có kiểm soát. Phase 1 chưa cung cấp lệnh tự động re-activate một
+build retired: không sửa trực tiếp trạng thái SQL. Nếu cần rollback sau cutover,
+dừng rollout và dùng quy trình quản trị được review để khôi phục metadata active
+trước khi Phase 2 cho runtime đọc graph này.
+
+### 6. Gate tích hợp dùng hạ tầng disposable
+
+```bash
+./scripts/test-knowledge-integration.sh
+```
+
+Gate dùng fake embedder 384 chiều nên chạy offline và ổn định. Nó tạo database
+rỗng, migrate đến head, kiểm tra dữ liệu tiếng Việt, loại draft khỏi projection,
+xác minh provenance/index, rồi ép candidate thứ hai thất bại để chứng minh build
+đang active không bị thay thế. Script chỉ xóa tài nguyên thuộc Compose project
+`english7-knowledge-integration`.
+
+### Giới hạn Phase 1
+
+Phase 1 chỉ xây nền graph đáng tin cậy. Tutor và quiz hiện tại **chưa đọc build
+mới**. Hybrid retrieval và quiz-to-concept mapping được triển khai ở Phase 2;
+mastery diagnosis, xác định lỗ hổng và remediation có xác nhận của học sinh ở
+Phase 3.
 
 ## Sao lưu
 

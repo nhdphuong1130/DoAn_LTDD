@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/lessons/lesson_screen.dart';
+import '../features/profile/profile_screen.dart';
 import '../features/progress/progress_screen.dart';
 import '../features/quizzes/quiz_screen.dart';
 import '../features/tutor/image_selector.dart';
 import '../features/tutor/tutor_screen.dart';
 import 'student_api.dart';
+
+enum _SessionState { checking, authenticated, unauthenticated, failed }
 
 class English7App extends StatefulWidget {
   final StudentApi api;
@@ -23,7 +26,69 @@ class English7App extends StatefulWidget {
 }
 
 class _English7AppState extends State<English7App> {
-  bool _authenticated = false;
+  _SessionState _sessionState = _SessionState.checking;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    setState(() => _sessionState = _SessionState.checking);
+    try {
+      final profile = await widget.api.restoreSession();
+      if (!mounted) return;
+      setState(
+        () => _sessionState = profile == null
+            ? _SessionState.unauthenticated
+            : _SessionState.authenticated,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _sessionState = _SessionState.failed);
+    }
+  }
+
+  void _onAuthenticated() {
+    setState(() => _sessionState = _SessionState.authenticated);
+  }
+
+  Future<void> _logout() async {
+    await widget.api.logout();
+    if (!mounted) return;
+    setState(() => _sessionState = _SessionState.unauthenticated);
+  }
+
+  Widget _home() => switch (_sessionState) {
+    _SessionState.checking => const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    ),
+    _SessionState.authenticated => StudentShell(
+      api: widget.api,
+      imageSelector: widget.imageSelector,
+      onLogout: _logout,
+    ),
+    _SessionState.unauthenticated => LoginScreen(
+      api: widget.api,
+      onAuthenticated: _onAuthenticated,
+    ),
+    _SessionState.failed => Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Không thể kiểm tra phiên đăng nhập'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _restoreSession,
+              child: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  };
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -36,22 +101,19 @@ class _English7AppState extends State<English7App> {
         border: OutlineInputBorder(),
       ),
     ),
-    home: _authenticated
-        ? StudentShell(api: widget.api, imageSelector: widget.imageSelector)
-        : LoginScreen(
-            api: widget.api,
-            onAuthenticated: () => setState(() => _authenticated = true),
-          ),
+    home: _home(),
   );
 }
 
 class StudentShell extends StatefulWidget {
   final StudentApi api;
   final ImageSelector imageSelector;
+  final Future<void> Function() onLogout;
   const StudentShell({
     super.key,
     required this.api,
     required this.imageSelector,
+    required this.onLogout,
   });
 
   @override
@@ -68,6 +130,7 @@ class _StudentShellState extends State<StudentShell> {
       TutorScreen(api: widget.api, imageSelector: widget.imageSelector),
       QuizScreen(api: widget.api),
       const ProgressScreen(),
+      ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('English 7 Global Success')),
@@ -91,6 +154,11 @@ class _StudentShellState extends State<StudentShell> {
           NavigationDestination(
             icon: Icon(Icons.insights_outlined),
             label: 'Tiến độ',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Cá nhân',
           ),
         ],
       ),

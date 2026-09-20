@@ -39,6 +39,90 @@ class ApiStudentApi implements StudentApi {
   }
 
   @override
+  Future<StudentProfile?> restoreSession() async {
+    final token = await _tokens.read();
+    if (token == null || token.isEmpty) return null;
+    try {
+      return await loadProfile();
+    } on ApiException catch (error) {
+      if (error.statusCode != 401) rethrow;
+      await _tokens.clear();
+      return null;
+    }
+  }
+
+  @override
+  Future<StudentProfile> loadProfile() async {
+    final response = await _client.getJson('/api/v1/auth/me');
+    return _profile(response.body);
+  }
+
+  @override
+  Future<StudentProfile> updateProfile(ProfileUpdate update) async {
+    final response = await _client.patchJson('/api/v1/auth/me', {
+      'full_name': update.fullName,
+      'date_of_birth': _date(update.dateOfBirth),
+      'gender': _genderValue(update.gender),
+      'school_name': update.schoolName,
+      'class_name': update.className,
+    });
+    return _profile(response.body);
+  }
+
+  @override
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+    String confirmation,
+  ) {
+    return _client.postNoContent('/api/v1/auth/change-password', {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+      'confirm_password': confirmation,
+    });
+  }
+
+  @override
+  Future<void> logout() => _tokens.clear();
+
+  static StudentProfile _profile(Map<String, Object?> body) {
+    final dateValue = body['date_of_birth'] as String?;
+    return StudentProfile(
+      id: body['id'] as String,
+      email: body['email'] as String,
+      role: body['role'] as String,
+      fullName: body['full_name'] as String?,
+      dateOfBirth: dateValue == null ? null : DateTime.parse(dateValue),
+      gender: _gender(body['gender'] as String?),
+      schoolName: body['school_name'] as String?,
+      className: body['class_name'] as String?,
+    );
+  }
+
+  static String? _date(DateTime? value) {
+    if (value == null) return null;
+    final month = value.month.toString().padLeft(2, '0');
+    final day = value.day.toString().padLeft(2, '0');
+    return '${value.year.toString().padLeft(4, '0')}-$month-$day';
+  }
+
+  static ProfileGender? _gender(String? value) => switch (value) {
+    'male' => ProfileGender.male,
+    'female' => ProfileGender.female,
+    'other' => ProfileGender.other,
+    'prefer_not_to_say' => ProfileGender.preferNotToSay,
+    _ => null,
+  };
+
+  static String? _genderValue(ProfileGender? value) => switch (value) {
+    ProfileGender.male => 'male',
+    ProfileGender.female => 'female',
+    ProfileGender.other => 'other',
+    ProfileGender.preferNotToSay => 'prefer_not_to_say',
+    null => null,
+  };
+
+  @override
   Future<List<LessonSummary>> loadLessons() async {
     final response = await _client.getJson('/api/v1/textbooks/units?limit=100');
     final items = response.body['items'] as List<dynamic>? ?? const [];

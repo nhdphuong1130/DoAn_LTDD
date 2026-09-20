@@ -4,11 +4,67 @@ import 'package:english7_mobile/app/student_api.dart';
 import 'package:english7_mobile/features/tutor/image_selector.dart';
 
 class FakeStudentApi implements StudentApi {
+  static const defaultProfile = StudentProfile(
+    id: 'user-1',
+    email: 'student@example.com',
+    role: 'student',
+  );
+
   bool refuseTutor = false;
   final tutorQueries = <TutorQuery>[];
+  StudentProfile profile = defaultProfile;
+  StudentProfile? restoredProfile;
+  Object? restoreError;
+  Object? profileUpdateError;
+  int restoreCalls = 0;
+  int updateProfileCalls = 0;
+  bool logoutCalled = false;
+  List<String>? passwordArguments;
 
   @override
   Future<void> login(String email, String password) async {}
+
+  @override
+  Future<StudentProfile?> restoreSession() async {
+    restoreCalls += 1;
+    if (restoreError != null) throw restoreError!;
+    return restoredProfile;
+  }
+
+  @override
+  Future<StudentProfile> loadProfile() async => profile;
+
+  @override
+  Future<StudentProfile> updateProfile(ProfileUpdate update) async {
+    updateProfileCalls += 1;
+    if (profileUpdateError != null) throw profileUpdateError!;
+    profile = StudentProfile(
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      fullName: update.fullName,
+      dateOfBirth: update.dateOfBirth,
+      gender: update.gender,
+      schoolName: update.schoolName,
+      className: update.className,
+    );
+    return profile;
+  }
+
+  @override
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+    String confirmation,
+  ) async {
+    passwordArguments = [currentPassword, newPassword, confirmation];
+  }
+
+  @override
+  Future<void> logout() async {
+    logoutCalled = true;
+    restoredProfile = null;
+  }
 
   @override
   Future<QuizOptions> loadQuizOptions() async =>

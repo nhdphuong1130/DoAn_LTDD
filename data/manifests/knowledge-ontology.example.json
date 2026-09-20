@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "manifest_id": "10000000-0000-4000-8000-000000000001",
+  "ontology_version": "english7-v1",
+  "created_by": "human-review",
+  "concepts": [
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "concept_type": "topic",
+      "canonical_name": "Hobbies",
+      "description_en": "Communicating about hobbies and leisure activities.",
+      "description_vi": "Giao tiếp về sở thích và hoạt động giải trí.",
+      "concept_text": "Hobbies; sở thích; leisure activities",
+      "review_status": "verified",
+      "properties": {}
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "concept_type": "grammar",
+      "canonical_name": "Verb be",
+      "description_en": "Forms of be used with subjects.",
+      "description_vi": "Các dạng của động từ be đi với chủ ngữ.",
+      "concept_text": "Verb be; am; is; are",
+      "review_status": "verified",
+      "properties": {}
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000003",
+      "concept_type": "grammar",
+      "canonical_name": "Present Simple",
+      "description_en": "The present simple for routines and facts.",
+      "description_vi": "Thì hiện tại đơn cho thói quen và sự thật.",
+      "concept_text": "Present Simple; routines; facts; hiện tại đơn",
+      "review_status": "verified",
+      "properties": {}
+    }
+  ],
+  "fragment_assertions": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "fragment_id": "20000000-0000-4000-8000-000000000001",
+      "concept_id": "40000000-0000-4000-8000-000000000003",
+      "assertion_type": "teaches",
+      "role_weight": 1.0,
+      "confidence": 1.0,
+      "review_status": "verified"
+    }
+  ],
+  "concept_relations": [
+    {
+      "id": "60000000-0000-4000-8000-000000000001",
+      "source_concept_id": "40000000-0000-4000-8000-000000000002",
+      "target_concept_id": "40000000-0000-4000-8000-000000000003",
+      "assertion_type": "prerequisite_of",
+      "role_weight": 0.8,
+      "confidence": 1.0,
+      "review_status": "verified",
+      "evidence_reference": "curriculum-review:english7-v1"
+    }
+  ],
+  "unit_assertions": [
+    {
+      "id": "70000000-0000-4000-8000-000000000001",
+      "unit_id": "30000000-0000-4000-8000-000000000001",
+      "concept_id": "40000000-0000-4000-8000-000000000003",
+      "assertion_type": "introduces",
+      "role_weight": 1.0,
+      "confidence": 1.0,
+      "review_status": "verified",
+      "evidence_fragment_id": "20000000-0000-4000-8000-000000000001"
+    }
+  ]
+}

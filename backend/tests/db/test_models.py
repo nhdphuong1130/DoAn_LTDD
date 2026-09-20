@@ -1,13 +1,25 @@
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import Unicode
 
 from english7.db.models import (
     AudioPlayback,
     QuizQuestion,
     ReviewStatus,
     SourceFragment,
+    User,
 )
+
+
+def test_user_profile_text_columns_are_nullable_unicode() -> None:
+    columns = User.__table__.c
+
+    assert isinstance(columns.full_name.type, Unicode)
+    assert isinstance(columns.school_name.type, Unicode)
+    assert isinstance(columns.class_name.type, Unicode)
+    assert columns.full_name.nullable is True
+    assert columns.date_of_birth.nullable is True
 
 
 def test_source_fragment_cannot_publish_before_verification() -> None:
@@ -95,4 +107,3 @@ def test_audio_playback_never_becomes_negative() -> None:
 
     with pytest.raises(ValueError, match="No audio plays"):
         playback.consume_play()
-

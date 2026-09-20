@@ -2,6 +2,46 @@ import 'dart:typed_data';
 
 enum TutorLanguage { vietnamese, english }
 
+enum ProfileGender { male, female, other, preferNotToSay }
+
+class StudentProfile {
+  final String id;
+  final String email;
+  final String role;
+  final String? fullName;
+  final DateTime? dateOfBirth;
+  final ProfileGender? gender;
+  final String? schoolName;
+  final String? className;
+
+  const StudentProfile({
+    required this.id,
+    required this.email,
+    required this.role,
+    this.fullName,
+    this.dateOfBirth,
+    this.gender,
+    this.schoolName,
+    this.className,
+  });
+}
+
+class ProfileUpdate {
+  final String? fullName;
+  final DateTime? dateOfBirth;
+  final ProfileGender? gender;
+  final String? schoolName;
+  final String? className;
+
+  const ProfileUpdate({
+    this.fullName,
+    this.dateOfBirth,
+    this.gender,
+    this.schoolName,
+    this.className,
+  });
+}
+
 class LessonSummary {
   final int unitNumber;
   final String title;
@@ -165,6 +205,15 @@ class QuizResult {
 
 abstract interface class StudentApi {
   Future<void> login(String email, String password);
+  Future<StudentProfile?> restoreSession();
+  Future<StudentProfile> loadProfile();
+  Future<StudentProfile> updateProfile(ProfileUpdate update);
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+    String confirmation,
+  );
+  Future<void> logout();
   Future<List<LessonSummary>> loadLessons();
   Future<List<LessonFragment>> loadFragments(String unitId);
   Future<LessonDetail> loadLessonDetail(String unitId);

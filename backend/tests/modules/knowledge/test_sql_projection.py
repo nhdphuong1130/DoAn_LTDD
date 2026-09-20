@@ -275,3 +275,22 @@ def test_start_build_reuses_matching_active_build() -> None:
 
     assert reused.id == first.id
     assert reused.status is GraphBuildStatus.ACTIVE
+
+
+def test_start_build_does_not_reuse_build_with_different_prefixes() -> None:
+    repository, factory = repository_fixture()
+    projection = KnowledgeProjection.create(ontology_version="v1")
+    first = repository.start_build(
+        projection,
+        EmbeddingIdentity("fake", "model", "v1", 2, "query: ", "passage: ", "v1"),
+    )
+    with factory() as session, session.begin():
+        session.get(GraphBuild, first.id).status = GraphBuildStatus.ACTIVE.value
+
+    replacement = repository.start_build(
+        projection,
+        EmbeddingIdentity("fake", "model", "v1", 2, "search: ", "document: ", "v1"),
+    )
+
+    assert replacement.id != first.id
+    assert replacement.status is GraphBuildStatus.BUILDING

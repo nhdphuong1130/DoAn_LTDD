@@ -474,6 +474,10 @@ class GraphBuild(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     embedding_model: Mapped[str] = mapped_column(String(255), nullable=False)
     embedding_model_version: Mapped[str] = mapped_column(String(100), nullable=False)
     embedding_dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding_query_prefix: Mapped[str] = mapped_column(Unicode(1024), nullable=False)
+    embedding_passage_prefix: Mapped[str] = mapped_column(
+        Unicode(1024), nullable=False
+    )
     embedding_preprocessing_version: Mapped[str] = mapped_column(
         String(100), nullable=False
     )

@@ -221,6 +221,10 @@ def upgrade() -> None:
         sa.Column("embedding_model", sa.String(length=255), nullable=False),
         sa.Column("embedding_model_version", sa.String(length=100), nullable=False),
         sa.Column("embedding_dimensions", sa.Integer(), nullable=False),
+        sa.Column("embedding_query_prefix", sa.Unicode(length=1024), nullable=False),
+        sa.Column(
+            "embedding_passage_prefix", sa.Unicode(length=1024), nullable=False
+        ),
         sa.Column(
             "embedding_preprocessing_version", sa.String(length=100), nullable=False
         ),

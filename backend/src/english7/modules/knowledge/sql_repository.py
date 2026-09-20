@@ -177,6 +177,10 @@ class SQLAlchemyKnowledgeRepository:
 
     def load_projection(self, ontology_version: str) -> KnowledgeProjection:
         with self._session_factory() as session:
+            if session.get_bind().dialect.name == "mssql":
+                session.connection(
+                    execution_options={"isolation_level": "SERIALIZABLE"}
+                )
             hierarchy_rows = session.execute(
                 select(SourceFragment, Activity, Section, Unit, Textbook)
                 .join(Activity, Activity.id == SourceFragment.activity_id)
@@ -460,6 +464,8 @@ class SQLAlchemyKnowledgeRepository:
                     GraphBuild.embedding_model == identity.model,
                     GraphBuild.embedding_model_version == identity.model_version,
                     GraphBuild.embedding_dimensions == identity.dimensions,
+                    GraphBuild.embedding_query_prefix == identity.query_prefix,
+                    GraphBuild.embedding_passage_prefix == identity.passage_prefix,
                     GraphBuild.embedding_preprocessing_version
                     == identity.preprocessing_version,
                 )
@@ -473,6 +479,8 @@ class SQLAlchemyKnowledgeRepository:
                 embedding_model=identity.model,
                 embedding_model_version=identity.model_version,
                 embedding_dimensions=identity.dimensions,
+                embedding_query_prefix=identity.query_prefix,
+                embedding_passage_prefix=identity.passage_prefix,
                 embedding_preprocessing_version=identity.preprocessing_version,
                 status=GraphBuildStatus.BUILDING.value,
                 expected_counts=projection.expected_counts,

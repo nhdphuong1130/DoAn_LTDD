@@ -41,28 +41,90 @@ class GroundedQuestionGenerator:
     def __init__(self, session_factory) -> None:
         self._session_factory = session_factory
 
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        """Remove markdown images, HTML tags, and normalize whitespace."""
+        import re
+        # Remove markdown images: ![alt](url)
+        text = re.sub(r"!\[[^\]]*\]\([^\)]*\)", "", text)
+        # Remove HTML tags
+        text = re.sub(r"<[^>]+>", "", text)
+        # Normalize whitespace
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        return text.strip()
+
+    @staticmethod
+    def _is_suitable_fragment(text: str) -> bool:
+        """Return True only for fragments suitable as True/False/Not given questions.
+
+        Unsuitable fragments:
+        - Contain markdown images
+        - Contain raw Options lists (exercise format)
+        - Contain matching arrows (->)
+        - Too short to be meaningful
+        - Pure numbered lists with no prose
+        """
+        import re
+        # Has markdown image syntax
+        if re.search(r"!\[[^\]]*\]\([^\)]*\)", text):
+            return False
+        # Has raw Options list (exercise instructions)
+        if re.search(r"Options:\s*\[", text):
+            return False
+        # Has matching exercise arrows
+        if re.search(r"\s->\s", text):
+            return False
+        # Too short
+        if len(text.strip()) < 40:
+            return False
+        # Pure numbered list without enough prose
+        lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+        if lines and all(re.match(r"^\d+\.", ln) for ln in lines):
+            return False
+        return True
+
     def generate(
         self, *, duration_minutes: int, difficulty: str, question_count: int
     ) -> list[GeneratedQuestion]:
+        import re
         with self._session_factory() as session:
-            fragments = session.scalars(
+            all_fragments = session.scalars(
                 select(SourceFragment).where(
                     SourceFragment.review_status == ReviewStatus.VERIFIED.value,
                     SourceFragment.is_published == True,
                 )
             ).all()
-            if not fragments:
+            if not all_fragments:
                 raise ApplicationError(
                     "insufficient_sources",
                     "Not enough verified textbook fragments to generate quiz",
                     503,
                 )
+
+            # Filter to fragments suitable for True/False/Not given questions
+            fragments = [
+                f for f in all_fragments
+                if self._is_suitable_fragment(f.normalized_text)
+            ]
+            # Fallback to all fragments if none pass the filter
+            if not fragments:
+                fragments = list(all_fragments)
+
             questions: list[GeneratedQuestion] = []
             for i in range(question_count):
                 frag = fragments[i % len(fragments)]
+                clean = self._clean_text(frag.normalized_text)
+                # Take first 120 chars, break at last complete word
+                statement = clean[:120].rstrip()
+                if len(clean) > 120:
+                    last_space = statement.rfind(" ")
+                    if last_space > 60:
+                        statement = statement[:last_space]
+                    statement += "..."
                 prompt = (
-                    f"Question {i + 1}: According to English 7 Textbook, "
-                    f"is the following statement true: '{frag.normalized_text[:100]}...'?"
+                    f"According to the English 7 Global Success textbook, "
+                    f"is the following statement True, False, or Not given?\n\n"
+                    f"\"{statement}\""
                 )
                 answer = {
                     "options": [

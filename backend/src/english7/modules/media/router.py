@@ -31,15 +31,19 @@ def _get_minio_client() -> Minio | None:
 
 @router.get("/audio/{track_number}")
 def get_audio_by_track(track_number: int) -> Response:
-    with get_session_factory()() as session:
-        track = session.scalar(
-            select(AudioTrack).where(AudioTrack.track_number == track_number)
-        )
-        asset = None
-        if track:
-            asset = session.scalar(
-                select(MediaAsset).where(MediaAsset.id == track.media_asset_id)
-            )
+    asset = None
+    if get_settings().database_url:
+        try:
+            with get_session_factory()() as session:
+                track = session.scalar(
+                    select(AudioTrack).where(AudioTrack.track_number == track_number)
+                )
+                if track:
+                    asset = session.scalar(
+                        select(MediaAsset).where(MediaAsset.id == track.media_asset_id)
+                    )
+        except Exception:
+            asset = None
 
     data: bytes | None = None
     minio_client = _get_minio_client()

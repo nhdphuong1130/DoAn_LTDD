@@ -896,7 +896,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         border: Border.all(color: Colors.pink.shade300, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.pink.shade50.withOpacity(0.5),
+            color: Colors.pink.shade50.withValues(alpha: 0.5),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -993,7 +993,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.pink.shade50.withOpacity(0.5),
+        color: Colors.pink.shade50.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.pink.shade200),
       ),

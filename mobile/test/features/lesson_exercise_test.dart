@@ -29,8 +29,8 @@ class FakeExerciseStudentApi extends FakeStudentApi {
                   id: 'frag-2',
                   pdfPage: 9,
                   printedPage: 9,
-                  text: "1. Trang's room is on the first floor. -> False (Trang: 'Let\'s go upstairs.')\n"
-                      "2. Ann goes to the Riders' Club once a week. -> True (Ann: 'I go to the Riders\' Club every Sunday.')",
+                  text: "1. Trang's room is on the first floor. -> False (Trang: 'Let's go upstairs.')\n"
+                      "2. Ann goes to the Riders' Club once a week. -> True (Ann: 'I go to the Riders' Club every Sunday.')",
                 ),
               ],
             ),
@@ -49,6 +49,7 @@ void main() {
         imageSelector: FakeImageSelector(),
       ),
     );
+    await tester.pumpAndSettle();
 
     // Login
     await tester.enterText(find.byKey(const Key('email-field')), 'student@example.com');
@@ -131,6 +132,7 @@ void main() {
         imageSelector: FakeImageSelector(),
       ),
     );
+    await tester.pumpAndSettle();
 
     // Login
     await tester.enterText(find.byKey(const Key('email-field')), 'student@example.com');
@@ -215,6 +217,7 @@ void main() {
         imageSelector: FakeImageSelector(),
       ),
     );
+    await tester.pumpAndSettle();
 
     // Login
     await tester.enterText(find.byKey(const Key('email-field')), 'student@example.com');
@@ -283,6 +286,7 @@ void main() {
         imageSelector: FakeImageSelector(),
       ),
     );
+    await tester.pumpAndSettle();
 
     // Login
     await tester.enterText(find.byKey(const Key('email-field')), 'student@example.com');
@@ -370,6 +374,7 @@ void main() {
         imageSelector: FakeImageSelector(),
       ),
     );
+    await tester.pumpAndSettle();
 
     // Login
     await tester.enterText(find.byKey(const Key('email-field')), 'student@example.com');

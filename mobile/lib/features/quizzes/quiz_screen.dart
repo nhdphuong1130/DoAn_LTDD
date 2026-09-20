@@ -210,7 +210,7 @@ class _QuizScreenState extends State<QuizScreen> {
         ),
       );
     }
-    if (_options == null) {
+    if (_isLoadingOptions || _options == null) {
       return const Center(child: CircularProgressIndicator());
     }
     return ListView(

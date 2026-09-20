@@ -38,8 +38,11 @@ class SequenceSimilarity:
 
 
 class GroundedQuestionGenerator:
-    def __init__(self, session_factory) -> None:
+    _CORRECT_OPTIONS = ("True", "False", "Not given")
+
+    def __init__(self, session_factory, *, ai_provider=None) -> None:
         self._session_factory = session_factory
+        self._ai_provider = ai_provider
 
     @staticmethod
     def _clean_text(text: str) -> str:
@@ -114,25 +117,11 @@ class GroundedQuestionGenerator:
             for i in range(question_count):
                 frag = fragments[i % len(fragments)]
                 clean = self._clean_text(frag.normalized_text)
-                # Take first 120 chars, break at last complete word
-                statement = clean[:120].rstrip()
-                if len(clean) > 120:
-                    last_space = statement.rfind(" ")
-                    if last_space > 60:
-                        statement = statement[:last_space]
-                    statement += "..."
-                prompt = (
-                    f"According to the English 7 Global Success textbook, "
-                    f"is the following statement True, False, or Not given?\n\n"
-                    f"\"{statement}\""
-                )
+
+                prompt, correct = self._make_question(clean, i)
                 answer = {
-                    "options": [
-                        "True",
-                        "False",
-                        "Not given",
-                    ],
-                    "correct": "True",
+                    "options": list(self._CORRECT_OPTIONS),
+                    "correct": correct,
                 }
                 questions.append(
                     GeneratedQuestion(
@@ -142,6 +131,113 @@ class GroundedQuestionGenerator:
                     )
                 )
             return questions
+
+    def _make_question(self, clean_text: str, index: int) -> tuple[str, str]:
+        """Generate (prompt, correct_answer) for a fragment.
+
+        Uses AI when available; falls back to a round-robin distribution so
+        not every question has the same answer.
+        """
+        if self._ai_provider is not None:
+            try:
+                target = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
+                return self._ai_generate_question(clean_text, target_answer=target)
+            except Exception:
+                pass  # AI failed → fall through to deterministic fallback
+
+        # Deterministic fallback: cycle through True / False / Not given
+        # so the quiz at least has varied answer distribution.
+        fallback_correct = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
+        # Take first 120 chars, break at last complete word
+        statement = clean_text[:120].rstrip()
+        if len(clean_text) > 120:
+            last_space = statement.rfind(" ")
+            if last_space > 60:
+                statement = statement[:last_space]
+            statement += "..."
+        prompt = (
+            f"According to the English 7 Global Success textbook, "
+            f"is the following statement True, False, or Not given?\n\n"
+            f"\"{statement}\""
+        )
+        return prompt, fallback_correct
+
+    def _ai_generate_question(self, clean_text: str, target_answer: str = "True") -> tuple[str, str]:
+        """Call OpenRouter to generate a True/False/Not given question.
+
+        Returns (prompt_for_student, correct_answer).
+        We tell the model WHICH answer to target so small free models reliably
+        produce varied questions instead of always choosing True.
+        """
+        import json as _json
+        from urllib.request import Request as _Req, urlopen as _open
+
+        api_key = self._ai_provider._api_key.get_secret_value()
+        model = self._ai_provider._model
+        endpoint = self._ai_provider._endpoint
+        timeout = min(self._ai_provider._timeout, 20)
+
+        instructions = {
+            "True": (
+                "Write a statement that is DIRECTLY and CLEARLY confirmed by the passage. "
+                "The statement must be True."
+            ),
+            "False": (
+                "Write a statement that CONTRADICTS or is WRONG according to the passage. "
+                "Change a key fact (a number, name, place, or action) so the statement is False."
+            ),
+            "Not given": (
+                "Write a statement about a related topic that is NOT mentioned anywhere in the passage. "
+                "The statement must be impossible to confirm or deny from the passage alone."
+            ),
+        }
+        instruction = instructions.get(target_answer, instructions["True"])
+
+        system = (
+            "You are an English 7 quiz item writer. "
+            "Given a textbook passage and an instruction, create exactly ONE statement. "
+            "Return ONLY valid JSON with two keys: "
+            "{\"statement\": \"<the statement>\", \"correct\": \"<True|False|Not given>\"}"
+        )
+        user = (
+            f"Passage:\n{clean_text[:400]}\n\n"
+            f"Instruction: {instruction}\n\n"
+            f"The correct answer for your statement MUST be: {target_answer}\n"
+            "Return JSON."
+        )
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        body = _json.dumps(payload).encode("utf-8")
+        req = _Req(
+            endpoint,
+            data=body,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with _open(req, timeout=timeout) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        content = _json.loads(data["choices"][0]["message"]["content"])
+        statement = str(content.get("statement", "")).strip()
+        correct = str(content.get("correct", "True")).strip()
+        if correct not in self._CORRECT_OPTIONS:
+            correct = "True"
+        if not statement:
+            raise ValueError("AI returned empty statement")
+        prompt = (
+            f"According to the English 7 Global Success textbook, "
+            f"is the following statement True, False, or Not given?\n\n"
+            f"\"{statement}\""
+        )
+        return prompt, correct
 
 
 @dataclass(slots=True)
@@ -296,7 +392,7 @@ def configure_runtime(
         SequenceSimilarity(),
         duplicate_threshold=settings.quiz_duplicate_threshold or 0.85,
     )
-    generator = GroundedQuestionGenerator(sessions)
+    generator = GroundedQuestionGenerator(sessions, ai_provider=provider)
     app.state.quiz_service = QuizService(
         selector=selector,
         generator=generator,

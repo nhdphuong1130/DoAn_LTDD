@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/lessons/lesson_screen.dart';
+import '../features/profile/profile_screen.dart';
 import '../features/progress/progress_screen.dart';
 import '../features/quizzes/quiz_screen.dart';
 import '../features/tutor/image_selector.dart';
@@ -129,6 +130,7 @@ class _StudentShellState extends State<StudentShell> {
       TutorScreen(api: widget.api, imageSelector: widget.imageSelector),
       QuizScreen(api: widget.api),
       const ProgressScreen(),
+      ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('English 7 Global Success')),
@@ -152,6 +154,11 @@ class _StudentShellState extends State<StudentShell> {
           NavigationDestination(
             icon: Icon(Icons.insights_outlined),
             label: 'Tiến độ',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Cá nhân',
           ),
         ],
       ),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
@@ -9,6 +9,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     CheckConstraint,
+    Date,
     Float,
     ForeignKey,
     Integer,
@@ -56,6 +57,11 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     preferred_language: Mapped[str] = mapped_column(String(10), default="vi")
     role_id: Mapped[UUID] = mapped_column(ForeignKey("roles.id"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    full_name: Mapped[str | None] = mapped_column(Unicode(255))
+    date_of_birth: Mapped[date | None] = mapped_column(Date)
+    gender: Mapped[str | None] = mapped_column(String(30))
+    school_name: Mapped[str | None] = mapped_column(Unicode(255))
+    class_name: Mapped[str | None] = mapped_column(Unicode(100))
 
     role: Mapped[Role] = relationship()
 

@@ -24,3 +24,14 @@ def test_initial_migration_creates_expected_tables() -> None:
         "unit_concept_assertions",
         "graph_builds",
     } <= table_names
+
+    user_columns = {
+        column["name"] for column in inspect(get_engine()).get_columns("users")
+    }
+    assert {
+        "full_name",
+        "date_of_birth",
+        "gender",
+        "school_name",
+        "class_name",
+    } <= user_columns

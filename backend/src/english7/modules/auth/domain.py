@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 from uuid import UUID, uuid4
 
 
@@ -9,6 +10,11 @@ class AuthUser:
     password_hash: str
     role: str
     is_active: bool = True
+    full_name: str | None = None
+    date_of_birth: date | None = None
+    gender: str | None = None
+    school_name: str | None = None
+    class_name: str | None = None
 
     @classmethod
     def new(
@@ -31,4 +37,3 @@ class TokenClaims:
     subject: UUID
     email: str
     role: str
-

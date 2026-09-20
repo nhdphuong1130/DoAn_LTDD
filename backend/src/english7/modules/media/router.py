@@ -77,7 +77,7 @@ def get_audio_by_track(track_number: int) -> Response:
         # Fallback to local files if available
         local_candidates = [
             f"/tmp/audio/{track_number:03d}.mp3",
-            f"/home/nguyenphuong/Music/MP3_Tieng anh 7_Global Success/{track_number:03d}.mp3",
+            os.path.expanduser(f"~/Music/MP3_Tieng anh 7_Global Success/{track_number:03d}.mp3"),
         ]
         for candidate in local_candidates:
             if os.path.exists(candidate):

@@ -64,7 +64,10 @@ class AppConfig {
   });
 
   Uri resolve(String path) {
-    final normalizedPath = path.startsWith('/') ? path : '/$path';
-    return apiBaseUrl.replace(path: '${apiBaseUrl.path}$normalizedPath');
+    final uri = Uri.parse(path.startsWith('/') ? path : '/$path');
+    return apiBaseUrl.replace(
+      path: '${apiBaseUrl.path}${uri.path}',
+      query: uri.hasQuery ? uri.query : null,
+    );
   }
 }

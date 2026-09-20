@@ -5,7 +5,11 @@ import pytest
 from english7.api.errors import ApplicationError
 from english7.db.models import ReviewStatus
 from english7.modules.media.storage import MinioStorage
-from english7.modules.textbooks.domain import TextbookFragment, TextbookUnit
+from english7.modules.textbooks.domain import (
+    TextbookFragment,
+    TextbookUnit,
+    TextbookUnitStructure,
+)
 from english7.modules.textbooks.service import TextbookService
 
 
@@ -29,6 +33,18 @@ class MemoryTextbookRepository:
         ]
         return published[offset : offset + limit]
 
+    def get_unit_structure(self, unit_id):
+        for unit in self.units:
+            if unit.id == unit_id and unit.is_published:
+                return TextbookUnitStructure(
+                    id=unit.id,
+                    number=unit.number,
+                    title=unit.title,
+                    is_published=unit.is_published,
+                    sections=[],
+                )
+        return None
+
     def get_fragment(self, fragment_id):
         return self.fragments.get(fragment_id)
 
@@ -38,6 +54,29 @@ class MemoryTextbookRepository:
 
     def add_audit_event(self, event):
         self.audit_events.append(event)
+
+
+def test_student_gets_published_unit_structure() -> None:
+    repository = MemoryTextbookRepository()
+    published_unit = TextbookUnit(uuid4(), 1, "Hobbies", True)
+    repository.units.append(published_unit)
+    service = TextbookService(repository)
+
+    structure = service.get_unit_structure(published_unit.id)
+    assert structure.id == published_unit.id
+    assert structure.number == 1
+    assert structure.title == "Hobbies"
+
+
+def test_student_cannot_get_unpublished_unit_structure() -> None:
+    repository = MemoryTextbookRepository()
+    draft_unit = TextbookUnit(uuid4(), 2, "Healthy Living", False)
+    repository.units.append(draft_unit)
+    service = TextbookService(repository)
+
+    with pytest.raises(ApplicationError) as err:
+        service.get_unit_structure(draft_unit.id)
+    assert err.value.code == "unit_not_found"
 
 
 def test_student_lists_only_published_units_and_verified_fragments() -> None:

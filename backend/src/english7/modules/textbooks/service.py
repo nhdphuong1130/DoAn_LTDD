@@ -1,7 +1,11 @@
 from uuid import UUID
 
 from english7.api.errors import ApplicationError
-from english7.modules.textbooks.domain import TextbookFragment, TextbookUnit
+from english7.modules.textbooks.domain import (
+    TextbookFragment,
+    TextbookUnit,
+    TextbookUnitStructure,
+)
 from english7.modules.textbooks.repository import TextbookRepository
 
 
@@ -11,6 +15,16 @@ class TextbookService:
 
     def list_units(self, *, offset: int, limit: int) -> list[TextbookUnit]:
         return self.repository.list_published_units(offset, limit)
+
+    def get_unit_structure(self, unit_id: UUID) -> TextbookUnitStructure:
+        structure = self.repository.get_unit_structure(unit_id)
+        if structure is None:
+            raise ApplicationError(
+                code="unit_not_found",
+                message="Textbook unit was not found or is not published",
+                status_code=404,
+            )
+        return structure
 
     def list_fragments(
         self,

@@ -13,7 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
-    Text,
+    UnicodeText,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -93,7 +93,7 @@ class Activity(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     section_id: Mapped[UUID] = mapped_column(ForeignKey("sections.id"))
     number: Mapped[str | None] = mapped_column(String(30))
     activity_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    instruction: Mapped[str | None] = mapped_column(Text)
+    instruction: Mapped[str | None] = mapped_column(UnicodeText)
 
 
 class SourceDocument(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -127,8 +127,8 @@ class SourceFragment(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     y: Mapped[float] = mapped_column(Float, nullable=False)
     width: Mapped[float] = mapped_column(Float, nullable=False)
     height: Mapped[float] = mapped_column(Float, nullable=False)
-    ocr_text: Mapped[str | None] = mapped_column(Text)
-    normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
+    ocr_text: Mapped[str | None] = mapped_column(UnicodeText)
+    normalized_text: Mapped[str] = mapped_column(UnicodeText, nullable=False)
     detection_confidence: Mapped[float | None] = mapped_column(Float)
     ocr_confidence: Mapped[float | None] = mapped_column(Float)
     detector_version: Mapped[str | None] = mapped_column(String(100))
@@ -180,7 +180,7 @@ class StudentImageUpload(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(30), default=ImageUploadStatus.QUEUED, nullable=False
     )
-    ocr_text: Mapped[str | None] = mapped_column(Text)
+    ocr_text: Mapped[str | None] = mapped_column(UnicodeText)
     ocr_confidence: Mapped[float | None] = mapped_column(Float)
     failure_code: Mapped[str | None] = mapped_column(String(100))
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
@@ -220,7 +220,7 @@ class QuizQuestion(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "quiz_questions"
 
     quiz_id: Mapped[UUID] = mapped_column(ForeignKey("quizzes.id"), nullable=False)
-    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt: Mapped[str] = mapped_column(UnicodeText, nullable=False)
     question_type: Mapped[str] = mapped_column(String(80), default="multiple_choice")
     answer_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     is_published: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

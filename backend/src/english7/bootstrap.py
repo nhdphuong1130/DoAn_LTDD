@@ -4,8 +4,12 @@ from typing import Any
 
 from minio import Minio
 from neo4j import GraphDatabase
+from difflib import SequenceMatcher
+from sqlalchemy import select
 
+from english7.api.errors import ApplicationError
 from english7.core.settings import Settings
+from english7.db.models import ReviewStatus, SourceFragment
 from english7.db.session import get_session_factory
 from english7.modules.ai.openrouter import (
     OpenRouterEmbedder,
@@ -16,8 +20,66 @@ from english7.modules.image_uploads.repository import SQLAlchemyImageUploadRepos
 from english7.modules.image_uploads.service import ImageUploadService
 from english7.modules.knowledge.neo4j_repository import Neo4jKnowledgeRepository
 from english7.modules.media.storage import MinioUploadStorage
+from english7.modules.quizzes.blueprint import BlueprintSelector
+from english7.modules.quizzes.domain import GeneratedQuestion
+from english7.modules.quizzes.repository import (
+    SQLAlchemyBlueprintRepository,
+    SQLAlchemyQuizRepository,
+)
+from english7.modules.quizzes.service import QuizService
+from english7.modules.quizzes.validator import QuestionValidator
 from english7.modules.retrieval.service import RetrievalService
 from english7.modules.tutor.service import TutorService
+
+
+class SequenceSimilarity:
+    def compare(self, left: str, right: str) -> float:
+        return SequenceMatcher(None, left.lower(), right.lower()).ratio()
+
+
+class GroundedQuestionGenerator:
+    def __init__(self, session_factory) -> None:
+        self._session_factory = session_factory
+
+    def generate(
+        self, *, duration_minutes: int, difficulty: str, question_count: int
+    ) -> list[GeneratedQuestion]:
+        with self._session_factory() as session:
+            fragments = session.scalars(
+                select(SourceFragment).where(
+                    SourceFragment.review_status == ReviewStatus.VERIFIED.value,
+                    SourceFragment.is_published == True,
+                )
+            ).all()
+            if not fragments:
+                raise ApplicationError(
+                    "insufficient_sources",
+                    "Not enough verified textbook fragments to generate quiz",
+                    503,
+                )
+            questions: list[GeneratedQuestion] = []
+            for i in range(question_count):
+                frag = fragments[i % len(fragments)]
+                prompt = (
+                    f"Question {i + 1}: According to English 7 Textbook, "
+                    f"is the following statement true: '{frag.normalized_text[:100]}...'?"
+                )
+                answer = {
+                    "options": [
+                        "True",
+                        "False",
+                        "Not given",
+                    ],
+                    "correct": "True",
+                }
+                questions.append(
+                    GeneratedQuestion(
+                        prompt=prompt,
+                        answer=answer,
+                        source_fragment_ids=(frag.id,),
+                    )
+                )
+            return questions
 
 
 @dataclass(slots=True)
@@ -154,5 +216,20 @@ def configure_runtime(
         provider,
         uploads=uploads,
         maximum_query_characters=settings.tutor_query_max_characters,
+    )
+    blueprint_repo = SQLAlchemyBlueprintRepository(sessions)
+    quiz_repo = SQLAlchemyQuizRepository(sessions)
+    selector = BlueprintSelector(blueprint_repo)
+    validator = QuestionValidator(
+        SequenceSimilarity(),
+        duplicate_threshold=settings.quiz_duplicate_threshold or 0.85,
+    )
+    generator = GroundedQuestionGenerator(sessions)
+    app.state.quiz_service = QuizService(
+        selector=selector,
+        generator=generator,
+        validator=validator,
+        repository=quiz_repo,
+        max_audio_plays=settings.quiz_max_audio_plays or 2,
     )
     return RuntimeResources(neo4j_driver)

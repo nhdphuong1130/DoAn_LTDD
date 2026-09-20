@@ -88,10 +88,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
                 FilledButton(
                   onPressed: _busy ? null : _login,
                   child: Text(_busy ? 'Đang đăng nhập…' : 'Đăng nhập'),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () {
+                    _email.text = 'student@english7.edu.vn';
+                    _password.text = 'StudentPassword123!';
+                  },
+                  icon: const Icon(Icons.account_circle_outlined, size: 18),
+                  label: const Text('Điền tài khoản mẫu (Học sinh)'),
                 ),
               ],
             ),

@@ -6,7 +6,85 @@ class LessonSummary {
   final int unitNumber;
   final String title;
   final String sectionTitle;
-  const LessonSummary(this.unitNumber, this.title, this.sectionTitle);
+  final String id;
+  const LessonSummary(this.unitNumber, this.title, this.sectionTitle, {this.id = ''});
+}
+
+class LessonFragment {
+  final String id;
+  final int? printedPage;
+  final int pdfPage;
+  final String text;
+  final String? sectionTitle;
+  final String? activityNumber;
+  final String? activityType;
+  final String? activityInstruction;
+  const LessonFragment({
+    required this.id,
+    this.printedPage,
+    required this.pdfPage,
+    required this.text,
+    this.sectionTitle,
+    this.activityNumber,
+    this.activityType,
+    this.activityInstruction,
+  });
+}
+
+class LessonAudioTrack {
+  final String id;
+  final int trackNumber;
+  final String audioUrl;
+  const LessonAudioTrack({
+    required this.id,
+    required this.trackNumber,
+    required this.audioUrl,
+  });
+}
+
+class LessonActivity {
+  final String id;
+  final String? number;
+  final String activityType;
+  final String? instruction;
+  final List<LessonAudioTrack> audioTracks;
+  final List<LessonFragment> fragments;
+  const LessonActivity({
+    required this.id,
+    this.number,
+    required this.activityType,
+    this.instruction,
+    this.audioTracks = const [],
+    required this.fragments,
+  });
+}
+
+class LessonSection {
+  final String id;
+  final String title;
+  final String sectionType;
+  final int position;
+  final List<LessonActivity> activities;
+  const LessonSection({
+    required this.id,
+    required this.title,
+    required this.sectionType,
+    required this.position,
+    required this.activities,
+  });
+}
+
+class LessonDetail {
+  final String id;
+  final int unitNumber;
+  final String title;
+  final List<LessonSection> sections;
+  const LessonDetail({
+    required this.id,
+    required this.unitNumber,
+    required this.title,
+    required this.sections,
+  });
 }
 
 class SourceReference {
@@ -88,6 +166,8 @@ class QuizResult {
 abstract interface class StudentApi {
   Future<void> login(String email, String password);
   Future<List<LessonSummary>> loadLessons();
+  Future<List<LessonFragment>> loadFragments(String unitId);
+  Future<LessonDetail> loadLessonDetail(String unitId);
   Future<QuizOptions> loadQuizOptions();
   Future<TutorResult> askTutor(TutorQuery query);
   Future<QuizSession> createQuiz(QuizSetup setup);

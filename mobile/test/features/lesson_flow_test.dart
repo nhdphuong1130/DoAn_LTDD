@@ -26,5 +26,9 @@ void main() {
 
     expect(find.text('Getting Started'), findsWidgets);
     expect(find.text('Nguồn: SGK Tiếng Anh 7'), findsOneWidget);
+    expect(find.text('Ann'), findsWidgets);
+    expect(find.text('Trang'), findsWidgets);
+    expect(find.text('Your house is very nice, Trang.'), findsOneWidget);
+    expect(find.text('Chuẩn nội dung SGK Tiếng Anh 7'), findsWidgets);
   });
 }

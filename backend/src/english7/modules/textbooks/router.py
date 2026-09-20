@@ -37,6 +37,10 @@ class FragmentResponse(BaseModel):
     pdf_page: int
     printed_page: int | None
     normalized_text: str
+    section_title: str | None = None
+    activity_number: str | None = None
+    activity_type: str | None = None
+    activity_instruction: str | None = None
 
     @classmethod
     def from_domain(cls, fragment: TextbookFragment) -> "FragmentResponse":
@@ -46,7 +50,41 @@ class FragmentResponse(BaseModel):
             pdf_page=fragment.pdf_page,
             printed_page=fragment.printed_page,
             normalized_text=fragment.normalized_text,
+            section_title=fragment.section_title,
+            activity_number=fragment.activity_number,
+            activity_type=fragment.activity_type,
+            activity_instruction=fragment.activity_instruction,
         )
+
+
+class AudioTrackResponse(BaseModel):
+    id: UUID
+    track_number: int
+    audio_url: str
+
+
+class ActivityStructureResponse(BaseModel):
+    id: UUID
+    number: str | None
+    activity_type: str
+    instruction: str | None
+    audio_tracks: list[AudioTrackResponse] = []
+    fragments: list[FragmentResponse]
+
+
+class SectionStructureResponse(BaseModel):
+    id: UUID
+    title: str
+    section_type: str
+    position: int
+    activities: list[ActivityStructureResponse]
+
+
+class UnitStructureResponse(BaseModel):
+    id: UUID
+    number: int
+    title: str
+    sections: list[SectionStructureResponse]
 
 
 class UnitListResponse(BaseModel):
@@ -77,6 +115,50 @@ def list_units(
     return UnitListResponse(
         items=[UnitResponse.from_domain(unit) for unit in units],
         pagination=PaginationResponse(offset=offset, limit=limit, count=len(units)),
+    )
+
+
+@router.get("/lessons/{unit_id}/structure", response_model=UnitStructureResponse)
+def get_unit_structure(
+    unit_id: UUID,
+    _user: Annotated[AuthUser, Depends(get_current_user)],
+    service: Annotated[TextbookService, Depends(get_textbook_service)],
+) -> UnitStructureResponse:
+    structure = service.get_unit_structure(unit_id)
+    return UnitStructureResponse(
+        id=structure.id,
+        number=structure.number,
+        title=structure.title,
+        sections=[
+            SectionStructureResponse(
+                id=sec.id,
+                title=sec.title,
+                section_type=sec.section_type,
+                position=sec.position,
+                activities=[
+                    ActivityStructureResponse(
+                        id=act.id,
+                        number=act.number,
+                        activity_type=act.activity_type,
+                        instruction=act.instruction,
+                        audio_tracks=[
+                            AudioTrackResponse(
+                                id=t.id,
+                                track_number=t.track_number,
+                                audio_url=t.audio_url,
+                            )
+                            for t in act.audio_tracks
+                        ],
+                        fragments=[
+                            FragmentResponse.from_domain(frag)
+                            for frag in act.fragments
+                        ],
+                    )
+                    for act in sec.activities
+                ],
+            )
+            for sec in structure.sections
+        ],
     )
 
 

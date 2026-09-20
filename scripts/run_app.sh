@@ -24,11 +24,17 @@ fi
 echo "[2/2] Launching Flutter Mobile App..."
 cd "$DIR/mobile"
 
-# Prefer Chrome or connected device
+# Prefer connected Android emulator, Chrome, or specified device
 if [ "$1" = "android" ]; then
-    flutter run
+    flutter run -d emulator-5554
 elif [ "$1" = "linux" ]; then
     flutter run -d linux
-else
+elif [ "$1" = "chrome" ]; then
     flutter run -d chrome
+else
+    if flutter devices | grep -q "emulator-"; then
+        flutter run -d emulator-5554
+    else
+        flutter run -d chrome
+    fi
 fi

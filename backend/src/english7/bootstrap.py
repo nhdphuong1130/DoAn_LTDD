@@ -182,14 +182,24 @@ def configure_runtime(
         embedding_dimensions=settings.embedding_dimensions,
         graph_result_limit=settings.retrieval_top_k,
     )
-    embedder = OpenRouterEmbedder(
-        http=http,
-        api_key=settings.openrouter_api_key,
-        endpoint=settings.openrouter_embedding_endpoint,
-        model=settings.openrouter_embedding_model,
-        dimensions=settings.embedding_dimensions,
-        timeout_seconds=settings.openrouter_timeout_seconds,
+    key_str = (
+        settings.openrouter_api_key.get_secret_value()
+        if hasattr(settings.openrouter_api_key, "get_secret_value")
+        else str(settings.openrouter_api_key or "")
     )
+    if settings.embedding_dimensions == 384 or not key_str or "replace" in key_str.lower():
+        from english7.modules.knowledge.fastembed_service import FastEmbedService
+
+        embedder = FastEmbedService()
+    else:
+        embedder = OpenRouterEmbedder(
+            http=http,
+            api_key=settings.openrouter_api_key,
+            endpoint=settings.openrouter_embedding_endpoint,
+            model=settings.openrouter_embedding_model,
+            dimensions=settings.embedding_dimensions,
+            timeout_seconds=settings.openrouter_timeout_seconds,
+        )
     retrieval = RetrievalService(
         repository=repository,
         embedder=embedder,

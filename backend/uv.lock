@@ -603,6 +603,7 @@ requires-dist = [
     { name = "doclayout-yolo", marker = "extra == 'vision'", specifier = ">=0.0.3,<0.1" },
     { name = "email-validator", specifier = ">=2.2,<3" },
     { name = "fastapi", specifier = ">=0.116,<1" },
+    { name = "fastembed", specifier = ">=0.4,<1" },
     { name = "fastembed", specifier = ">=0.8,<0.9" },
     { name = "httpx2", marker = "extra == 'test'", specifier = ">=2.13,<3" },
     { name = "minio", specifier = ">=7.2,<8" },

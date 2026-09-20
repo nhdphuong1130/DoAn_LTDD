@@ -3,7 +3,10 @@ from typing import Protocol
 from uuid import UUID
 
 from english7.modules.knowledge.contracts import Embedder
-from english7.modules.retrieval.reranker import reciprocal_rank_fusion
+from english7.modules.retrieval.reranker import (
+    reciprocal_rank_fusion,
+    weighted_reciprocal_rank_fusion,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,19 +84,39 @@ class RetrievalService:
         if not vector:
             return GroundedContext((), ())
 
-        graph = [
-            item
-            for item in self._repository.expand(
-                tuple(item.fragment_id for item in vector), self._graph_depth
+        if hasattr(self._repository, "weighted_graph_search"):
+            graph_results = [
+                (item, weight)
+                for item, weight in self._repository.weighted_graph_search(
+                    tuple(item.fragment_id for item in vector), self._graph_depth
+                )
+                if self._allowed(item)
+            ]
+            by_id = {str(item.fragment_id): item for item in vector}
+            for item, _ in graph_results:
+                by_id[str(item.fragment_id)] = item
+            fused = weighted_reciprocal_rank_fusion(
+                vector_ids=tuple(str(item.fragment_id) for item in vector),
+                graph_scored_ids=tuple(
+                    (str(item.fragment_id), weight) for item, weight in graph_results
+                ),
+                rank_constant=self._rrf_constant,
             )
-            if self._allowed(item)
-        ]
-        by_id = {str(item.fragment_id): item for item in (*vector, *graph)}
-        fused = reciprocal_rank_fusion(
-            vector_ids=tuple(str(item.fragment_id) for item in vector),
-            graph_ids=tuple(str(item.fragment_id) for item in graph),
-            rank_constant=self._rrf_constant,
-        )
+        else:
+            graph = [
+                item
+                for item in self._repository.expand(
+                    tuple(item.fragment_id for item in vector), self._graph_depth
+                )
+                if self._allowed(item)
+            ]
+            by_id = {str(item.fragment_id): item for item in (*vector, *graph)}
+            fused = reciprocal_rank_fusion(
+                vector_ids=tuple(str(item.fragment_id) for item in vector),
+                graph_ids=tuple(str(item.fragment_id) for item in graph),
+                rank_constant=self._rrf_constant,
+            )
+
         fragments = tuple(
             by_id[item.item_id] for item in fused[: self._max_context]
         )

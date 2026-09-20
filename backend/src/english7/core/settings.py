@@ -23,7 +23,15 @@ class Settings(BaseSettings):
     neo4j_user: str | None = None
     neo4j_password: SecretStr | None = None
     neo4j_vector_index: str | None = None
+    embedding_provider: str = "fastembed"
+    embedding_model: str | None = None
+    embedding_model_version: str | None = None
     embedding_dimensions: int | None = None
+    embedding_cache_dir: str = "/app/cache/fastembed"
+    embedding_batch_size: int = 32
+    embedding_query_prefix: str = ""
+    embedding_passage_prefix: str = ""
+    embedding_preprocessing_version: str = "v1"
     retrieval_top_k: int | None = None
     retrieval_min_score: float | None = None
     retrieval_graph_depth: int | None = None

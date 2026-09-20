@@ -1,8 +1,12 @@
 import argparse
+import json
 from pathlib import Path
 from uuid import UUID
 
+from english7.core.settings import get_settings
 from english7.db.session import get_session_factory
+from english7.modules.knowledge.embedding import EmbeddingIdentity, FastEmbedService
+from english7.modules.knowledge.embedding_benchmark import BenchmarkDataset, benchmark
 from english7.modules.knowledge.ontology_importer import OntologyImporter
 from english7.modules.knowledge.ontology_manifest import OntologyManifest
 from english7.modules.knowledge.sql_repository import SQLAlchemyKnowledgeRepository
@@ -63,6 +67,34 @@ def import_ontology(args: argparse.Namespace) -> None:
     )
 
 
+def benchmark_embeddings(args: argparse.Namespace) -> None:
+    settings = get_settings()
+    dimensions = args.dimensions or settings.embedding_dimensions
+    if dimensions is None:
+        raise SystemExit("Embedding dimensions are required")
+    identity = EmbeddingIdentity(
+        provider=settings.embedding_provider,
+        model=args.model,
+        model_version=args.model_version,
+        dimensions=dimensions,
+        query_prefix=settings.embedding_query_prefix,
+        passage_prefix=settings.embedding_passage_prefix,
+        preprocessing_version=settings.embedding_preprocessing_version,
+    )
+    dataset = BenchmarkDataset.load(args.cases)
+    report = benchmark(
+        FastEmbedService(
+            identity=identity,
+            cache_dir=Path(settings.embedding_cache_dir),
+            batch_size=settings.embedding_batch_size,
+        ),
+        dataset.cases,
+        dataset.candidates,
+        top_k=args.top_k,
+    )
+    print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="english7")
     commands = parser.add_subparsers(required=True)
@@ -85,6 +117,14 @@ def build_parser() -> argparse.ArgumentParser:
     ontology = commands.add_parser("import-ontology")
     ontology.add_argument("--manifest", type=Path, required=True)
     ontology.set_defaults(handler=import_ontology)
+
+    embedding_benchmark = commands.add_parser("benchmark-embeddings")
+    embedding_benchmark.add_argument("--cases", type=Path, required=True)
+    embedding_benchmark.add_argument("--model", required=True)
+    embedding_benchmark.add_argument("--model-version", required=True)
+    embedding_benchmark.add_argument("--dimensions", type=int)
+    embedding_benchmark.add_argument("--top-k", type=int, default=5)
+    embedding_benchmark.set_defaults(handler=benchmark_embeddings)
     return parser
 
 

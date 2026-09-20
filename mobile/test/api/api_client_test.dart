@@ -114,4 +114,63 @@ void main() {
     expect(body, contains('name="image"; filename="exercise.png"'));
     expect(body, contains('Content-Type: image/png'));
   });
+
+  test('patchJson sends authenticated PATCH payload', () async {
+    final transport = FakeTransport(
+      TransportResponse(
+        200,
+        const {},
+        Uint8List.fromList(utf8.encode('{"full_name":"Nguyễn An"}')),
+      ),
+    );
+    final client = ApiClient(config, transport, FakeTokenStore('token-123'));
+
+    await client.patchJson('/api/v1/auth/me', {
+      'full_name': 'Nguyễn An',
+    });
+
+    expect(transport.request!.method, 'PATCH');
+    expect(transport.request!.headers['Authorization'], 'Bearer token-123');
+  });
+
+  test('postNoContent accepts a successful empty response', () async {
+    final transport = FakeTransport(
+      TransportResponse(204, const {}, Uint8List(0)),
+    );
+    final client = ApiClient(config, transport, FakeTokenStore('token-123'));
+
+    await client.postNoContent('/api/v1/auth/change-password', {
+      'current_password': 'old-password',
+      'new_password': 'new-password',
+      'confirm_password': 'new-password',
+    });
+
+    expect(transport.request!.method, 'POST');
+  });
+
+  test('postNoContent maps a standard error response', () async {
+    final transport = FakeTransport(
+      TransportResponse(
+        400,
+        const {},
+        Uint8List.fromList(
+          utf8.encode(
+            '{"code":"current_password_invalid","message":"Wrong password"}',
+          ),
+        ),
+      ),
+    );
+    final client = ApiClient(config, transport, FakeTokenStore('token-123'));
+
+    await expectLater(
+      client.postNoContent('/api/v1/auth/change-password', const {}),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.code,
+          'code',
+          'current_password_invalid',
+        ),
+      ),
+    );
+  });
 }

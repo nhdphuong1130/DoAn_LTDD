@@ -149,10 +149,7 @@ void main() {
         }),
       );
 
-    final profile = await buildApi(
-      transport,
-      MemoryTokens(),
-    ).updateProfile(
+    final profile = await buildApi(transport, MemoryTokens()).updateProfile(
       ProfileUpdate(
         fullName: 'Nguyễn An',
         dateOfBirth: DateTime(2013, 5, 10),

@@ -23,6 +23,9 @@ docker compose --env-file .env run --rm api alembic upgrade head
 docker compose --env-file .env up -d api worker
 ```
 
+> [!NOTE]
+> Lệnh `alembic upgrade head` sẽ tạo mới hoặc nâng cấp các cột thông tin cá nhân mở rộng (`full_name`, `date_of_birth`, `gender`, `school_name`, `class_name`) trong bảng `users` với định dạng Unicode (NVARCHAR).
+
 API Swagger nằm tại `http://localhost:<API_HOST_PORT>/docs`. DBeaver kết nối
 SQL Server qua `localhost:<SQLSERVER_HOST_PORT>` bằng thông tin trong `.env`.
 

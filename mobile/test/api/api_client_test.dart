@@ -125,9 +125,7 @@ void main() {
     );
     final client = ApiClient(config, transport, FakeTokenStore('token-123'));
 
-    await client.patchJson('/api/v1/auth/me', {
-      'full_name': 'Nguyễn An',
-    });
+    await client.patchJson('/api/v1/auth/me', {'full_name': 'Nguyễn An'});
 
     expect(transport.request!.method, 'PATCH');
     expect(transport.request!.headers['Authorization'], 'Bearer token-123');

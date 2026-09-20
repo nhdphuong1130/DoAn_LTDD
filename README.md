@@ -53,6 +53,13 @@ retrieval/tutor và quiz mapping thuộc Phase 2; chẩn đoán mastery và reme
 thuộc Phase 3. Xem quy trình import, benchmark, build và phục hồi trong
 [Thiết lập Linux](docs/setup-linux.md#vận-hành-knowledge-graph-phase-1).
 
+## Hồ sơ cá nhân và Phiên đăng nhập
+
+- Quản lý hồ sơ học sinh: Xem và cập nhật thông tin cá nhân (Họ tên, Ngày sinh, Giới tính, Trường học, Lớp) qua `GET /api/v1/auth/me` và `PATCH /api/v1/auth/me`.
+- Đổi mật khẩu an toàn qua `POST /api/v1/auth/password`.
+- Quản lý phiên đăng nhập & Đăng xuất: Ứng dụng tự động khôi phục phiên từ secure storage khi mở app; chức năng Đăng xuất xóa token đã lưu trên thiết bị. Do sử dụng JWT không lưu trạng thái (stateless), việc đăng xuất phía client không yêu cầu bảng thu hồi token phía máy chủ.
+- Yêu cầu di trú cơ sở dữ liệu: Chạy `alembic upgrade head` trước khi khởi động dịch vụ để thêm các cột hồ sơ Unicode cho bảng người dùng.
+
 ## Tài liệu
 
 - [Thiết lập Linux](docs/setup-linux.md)

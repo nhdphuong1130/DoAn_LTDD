@@ -1,0 +1,22 @@
+name: Security & Audit
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  secret-scan:
+    name: Secrets & Config Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for Uncommitted Secrets
+        run: |
+          chmod +x scripts/audit/check-no-secrets.sh
+          ./scripts/audit/check-no-secrets.sh
+      - name: Check for Hardcoded Config
+        run: |
+          chmod +x scripts/audit/check-no-hardcoded-config.sh
+          ./scripts/audit/check-no-hardcoded-config.sh

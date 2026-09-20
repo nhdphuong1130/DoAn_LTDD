@@ -1,0 +1,28 @@
+name: Feature Request
+description: Propose a new feature, pedagogical capability, or architecture enhancement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for proposing an enhancement to the English 7 Grounded Learning Platform.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What educational need, pedagogical gap, or developer experience pain point does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature, architecture approach, or API additions you envision.
+    validations:
+      required: true
+  - type: textarea
+    id: pedagogical-alignment
+    attributes:
+      label: Pedagogical Alignment
+      description: How does this align with Grade 7 English learning outcomes and textbook grounding?
+    validations:
+      required: false

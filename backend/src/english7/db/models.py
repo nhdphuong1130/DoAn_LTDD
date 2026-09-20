@@ -14,6 +14,8 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Unicode,
+    UnicodeText,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -313,10 +315,10 @@ class KnowledgeConcept(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
 
     concept_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    canonical_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description_en: Mapped[str | None] = mapped_column(Text)
-    description_vi: Mapped[str | None] = mapped_column(Text)
-    concept_text: Mapped[str] = mapped_column(Text, nullable=False)
+    canonical_name: Mapped[str] = mapped_column(Unicode(255), nullable=False)
+    description_en: Mapped[str | None] = mapped_column(UnicodeText)
+    description_vi: Mapped[str | None] = mapped_column(UnicodeText)
+    concept_text: Mapped[str] = mapped_column(UnicodeText, nullable=False)
     ontology_version: Mapped[str] = mapped_column(String(100), nullable=False)
     review_status: Mapped[str] = mapped_column(String(30), nullable=False)
     concept_properties: Mapped[dict[str, Any]] = mapped_column(

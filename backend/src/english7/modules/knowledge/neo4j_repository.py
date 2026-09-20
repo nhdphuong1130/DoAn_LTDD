@@ -570,7 +570,8 @@ class VersionedNeo4jRepository:
                 "OPTIONAL MATCH ()-[rel {build_id: $build_id}]->() "
                 "WHERE rel.assertion_id IS NOT NULL "
                 "AND coalesce(rel.review_status, '') <> 'verified' "
-                "RETURN bad_nodes + count(rel) AS count",
+                "WITH bad_nodes, count(rel) AS bad_relationships "
+                "RETURN bad_nodes + bad_relationships AS count",
                 build_id=build_value,
             ).single()
             structural_orphans = session.run(

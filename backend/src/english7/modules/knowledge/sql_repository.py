@@ -430,7 +430,7 @@ class SQLAlchemyKnowledgeRepository:
                         "EXEC @result = sp_getapplock "
                         "@Resource = 'english7:knowledge-graph-build', "
                         "@LockMode = 'Exclusive', @LockOwner = 'Transaction', "
-                        "@LockTimeout = 0; SELECT @result"
+                        "@LockTimeout = 0; SET NOCOUNT OFF; SELECT @result"
                     )
                 ).scalar_one()
                 if int(lock_result) < 0:

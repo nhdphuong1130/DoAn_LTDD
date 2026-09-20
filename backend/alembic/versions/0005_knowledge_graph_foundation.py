@@ -33,13 +33,61 @@ def _assertion_columns(*, source_columns: tuple[sa.Column, ...]) -> list:
 
 
 def upgrade() -> None:
+    inspector = sa.inspect(op.get_bind())
+    required_tables = {
+        "knowledge_concepts",
+        "fragment_concept_assertions",
+        "concept_relation_assertions",
+        "unit_concept_assertions",
+        "graph_builds",
+    }
+    if required_tables <= set(inspector.get_table_names()):
+        indexes = {
+            "knowledge_concepts": (
+                "ix_knowledge_concepts_review_version",
+                ["review_status", "ontology_version"],
+            ),
+            "fragment_concept_assertions": (
+                "ix_fragment_concept_assertions_review_version",
+                ["review_status", "ontology_version"],
+            ),
+            "concept_relation_assertions": (
+                "ix_concept_relation_assertions_review_version",
+                ["review_status", "ontology_version"],
+            ),
+            "unit_concept_assertions": (
+                "ix_unit_concept_assertions_review_version",
+                ["review_status", "ontology_version"],
+            ),
+            "graph_builds": (
+                "ix_graph_builds_status",
+                ["status"],
+            ),
+        }
+        for table, (name, columns) in indexes.items():
+            existing = {
+                index["name"] for index in inspector.get_indexes(table)
+            }
+            if name not in existing:
+                op.create_index(name, table, columns)
+        graph_indexes = {
+            index["name"] for index in inspector.get_indexes("graph_builds")
+        }
+        if "ix_graph_builds_source_identity" not in graph_indexes:
+            op.create_index(
+                "ix_graph_builds_source_identity",
+                "graph_builds",
+                ["source_checksum", "ontology_version", "embedding_model"],
+            )
+        return
+
     op.create_table(
         "knowledge_concepts",
         sa.Column("concept_type", sa.String(length=50), nullable=False),
-        sa.Column("canonical_name", sa.String(length=255), nullable=False),
-        sa.Column("description_en", sa.Text(), nullable=True),
-        sa.Column("description_vi", sa.Text(), nullable=True),
-        sa.Column("concept_text", sa.Text(), nullable=False),
+        sa.Column("canonical_name", sa.Unicode(length=255), nullable=False),
+        sa.Column("description_en", sa.UnicodeText(), nullable=True),
+        sa.Column("description_vi", sa.UnicodeText(), nullable=True),
+        sa.Column("concept_text", sa.UnicodeText(), nullable=False),
         sa.Column("ontology_version", sa.String(length=100), nullable=False),
         sa.Column("review_status", sa.String(length=30), nullable=False),
         sa.Column("properties", sa.JSON(), nullable=False),

@@ -31,10 +31,27 @@ service-facing settings are supplied through environment variables.
 
 ```bash
 docker compose --env-file .env.example run --rm api pytest -q
+./scripts/test-knowledge-integration.sh
 cd mobile
 flutter analyze
 flutter test
 ```
+
+Script `test-knowledge-integration.sh` tạo SQL Server và Neo4j dùng một lần,
+kiểm tra migrate/import/build/validate/activate và rollback an toàn khi candidate
+lỗi, rồi tự xóa container, network và volume thuộc project kiểm thử.
+
+## Knowledge graph Phase 1
+
+Phase 1 đã cung cấp nguồn tri thức có review trong SQL Server, ontology có
+provenance, embedding song ngữ có version và các Neo4j build cô lập theo
+`build_id`. Candidate chỉ được active sau khi counts, quan hệ, kích thước vector
+và vector index đều hợp lệ; candidate lỗi không thay thế build active trước đó.
+
+Phase này **chưa chuyển tutor hoặc quiz runtime sang graph mới**. Hybrid
+retrieval/tutor và quiz mapping thuộc Phase 2; chẩn đoán mastery và remediation
+thuộc Phase 3. Xem quy trình import, benchmark, build và phục hồi trong
+[Thiết lập Linux](docs/setup-linux.md#vận-hành-knowledge-graph-phase-1).
 
 ## Tài liệu
 

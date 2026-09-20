@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: english7-prod
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: always
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_PID: "Express"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5.26-community
+    restart: always
+    environment:
+      NEO4J_AUTH: ${ENGLISH7_NEO4J_USER}/${ENGLISH7_NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-07T23-21-09Z
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../../backend
+      target: runtime
+    restart: always
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    env_file:
+      - ../../.env
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: ../../backend
+      target: runtime
+    restart: always
+    command: ["uv", "run", "python", "-m", "english7.worker"]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    env_file:
+      - ../../.env
+
+volumes:
+  sqlserver_data:
+  neo4j_data:
+  minio_data:

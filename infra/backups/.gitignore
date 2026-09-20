@@ -1,0 +1,6 @@
+# Ignore all database backup and dump files
+*.bak
+*.dump
+*.sql
+*.tar.gz
+*.zip

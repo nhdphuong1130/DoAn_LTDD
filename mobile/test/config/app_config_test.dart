@@ -33,4 +33,11 @@ void main() {
       throwsA(isA<ConfigurationException>()),
     );
   });
+
+  test('fromDartDefine provides sensible defaults when no defines are passed', () {
+    final config = AppConfig.fromDartDefine();
+    expect(config.apiBaseUrl.toString(), startsWith('http://'));
+    expect(config.imagePollInterval, const Duration(milliseconds: 1000));
+    expect(config.imagePollMaxAttempts, 30);
+  });
 }

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class ConfigurationException implements Exception {
   final String message;
   const ConfigurationException(this.message);
@@ -55,13 +57,19 @@ class AppConfig {
     );
   }
 
-  factory AppConfig.fromDartDefine() => AppConfig.fromEnvironment(const {
-    'API_BASE_URL': String.fromEnvironment('API_BASE_URL'),
-    'IMAGE_POLL_INTERVAL_MS': String.fromEnvironment('IMAGE_POLL_INTERVAL_MS'),
-    'IMAGE_POLL_MAX_ATTEMPTS': String.fromEnvironment(
-      'IMAGE_POLL_MAX_ATTEMPTS',
-    ),
-  });
+  factory AppConfig.fromDartDefine() {
+    final baseUrl = const String.fromEnvironment('API_BASE_URL');
+    final pollInterval = const String.fromEnvironment('IMAGE_POLL_INTERVAL_MS');
+    final pollAttempts = const String.fromEnvironment('IMAGE_POLL_MAX_ATTEMPTS');
+
+    final defaultBaseUrl = kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+
+    return AppConfig.fromEnvironment({
+      'API_BASE_URL': baseUrl.isNotEmpty ? baseUrl : defaultBaseUrl,
+      'IMAGE_POLL_INTERVAL_MS': pollInterval.isNotEmpty ? pollInterval : '1000',
+      'IMAGE_POLL_MAX_ATTEMPTS': pollAttempts.isNotEmpty ? pollAttempts : '30',
+    });
+  }
 
   Uri resolve(String path) {
     final uri = Uri.parse(path.startsWith('/') ? path : '/$path');

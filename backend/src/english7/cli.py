@@ -3,6 +3,9 @@ from pathlib import Path
 from uuid import UUID
 
 from english7.db.session import get_session_factory
+from english7.modules.knowledge.ontology_importer import OntologyImporter
+from english7.modules.knowledge.ontology_manifest import OntologyManifest
+from english7.modules.knowledge.sql_repository import SQLAlchemyKnowledgeRepository
 from english7.modules.seeding.importer import SeedImporter
 from english7.modules.seeding.manifest import SeedManifest
 from english7.modules.seeding.repository import SQLAlchemySeedRepository
@@ -22,6 +25,10 @@ class FileObjectCatalog:
 
 def _repository() -> SQLAlchemySeedRepository:
     return SQLAlchemySeedRepository(lambda: get_session_factory()())
+
+
+def _knowledge_repository() -> SQLAlchemyKnowledgeRepository:
+    return SQLAlchemyKnowledgeRepository(lambda: get_session_factory()())
 
 
 def import_seed(args: argparse.Namespace) -> None:
@@ -46,6 +53,16 @@ def export_seed(args: argparse.Namespace) -> None:
     args.output.write_text(manifest.to_json() + "\n", encoding="utf-8")
 
 
+def import_ontology(args: argparse.Namespace) -> None:
+    result = OntologyImporter(_knowledge_repository()).import_manifest(
+        OntologyManifest.load(args.manifest)
+    )
+    print(
+        f"manifest={result.manifest_id} created={str(result.created).lower()} "
+        f"concepts={result.concept_count} assertions={result.assertion_count}"
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="english7")
     commands = parser.add_subparsers(required=True)
@@ -64,6 +81,10 @@ def build_parser() -> argparse.ArgumentParser:
     exporter.add_argument("--package-id", type=UUID, required=True)
     exporter.add_argument("--output", type=Path, required=True)
     exporter.set_defaults(handler=export_seed)
+
+    ontology = commands.add_parser("import-ontology")
+    ontology.add_argument("--manifest", type=Path, required=True)
+    ontology.set_defaults(handler=import_ontology)
     return parser
 
 

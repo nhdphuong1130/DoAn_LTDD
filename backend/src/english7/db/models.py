@@ -301,6 +301,191 @@ class MasteryRecord(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
+class KnowledgeConcept(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "knowledge_concepts"
+    __table_args__ = (
+        UniqueConstraint(
+            "ontology_version",
+            "concept_type",
+            "canonical_name",
+            name="uq_knowledge_concept_identity",
+        ),
+    )
+
+    concept_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    canonical_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description_en: Mapped[str | None] = mapped_column(Text)
+    description_vi: Mapped[str | None] = mapped_column(Text)
+    concept_text: Mapped[str] = mapped_column(Text, nullable=False)
+    ontology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    review_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    concept_properties: Mapped[dict[str, Any]] = mapped_column(
+        "properties", JSON, default=dict, nullable=False
+    )
+    created_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(255))
+    reviewer_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column()
+
+
+class _ScoredAssertion:
+    role_weight: Mapped[float]
+    confidence: Mapped[float]
+
+    def validate_scores(self) -> None:
+        for field in ("role_weight", "confidence"):
+            value = getattr(self, field)
+            if not 0 <= value <= 1:
+                raise ValueError(f"{field} must be between zero and one")
+
+
+class FragmentConceptAssertion(
+    Base, UUIDPrimaryKeyMixin, TimestampMixin, _ScoredAssertion
+):
+    __tablename__ = "fragment_concept_assertions"
+    __table_args__ = (
+        UniqueConstraint(
+            "fragment_id",
+            "concept_id",
+            "assertion_type",
+            name="uq_fragment_concept_assertion",
+        ),
+        CheckConstraint(
+            "role_weight >= 0 AND role_weight <= 1",
+            name="ck_fragment_concept_role_weight",
+        ),
+        CheckConstraint(
+            "confidence >= 0 AND confidence <= 1",
+            name="ck_fragment_concept_confidence",
+        ),
+    )
+
+    fragment_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_fragments.id"), nullable=False
+    )
+    concept_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_concepts.id"), nullable=False
+    )
+    assertion_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    role_weight: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    review_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    evidence_reference: Mapped[str | None] = mapped_column(String(1024))
+    created_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(255))
+    ontology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    reviewer_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column()
+
+
+class ConceptRelationAssertion(
+    Base, UUIDPrimaryKeyMixin, TimestampMixin, _ScoredAssertion
+):
+    __tablename__ = "concept_relation_assertions"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_concept_id",
+            "target_concept_id",
+            "assertion_type",
+            name="uq_concept_relation_assertion",
+        ),
+        CheckConstraint(
+            "role_weight >= 0 AND role_weight <= 1",
+            name="ck_concept_relation_role_weight",
+        ),
+        CheckConstraint(
+            "confidence >= 0 AND confidence <= 1",
+            name="ck_concept_relation_confidence",
+        ),
+    )
+
+    source_concept_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_concepts.id"), nullable=False
+    )
+    target_concept_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_concepts.id"), nullable=False
+    )
+    assertion_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    role_weight: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    review_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    evidence_fragment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("source_fragments.id")
+    )
+    evidence_reference: Mapped[str | None] = mapped_column(String(1024))
+    created_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(255))
+    ontology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    reviewer_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column()
+
+
+class UnitConceptAssertion(Base, UUIDPrimaryKeyMixin, TimestampMixin, _ScoredAssertion):
+    __tablename__ = "unit_concept_assertions"
+    __table_args__ = (
+        UniqueConstraint(
+            "unit_id",
+            "concept_id",
+            "assertion_type",
+            name="uq_unit_concept_assertion",
+        ),
+        CheckConstraint(
+            "role_weight >= 0 AND role_weight <= 1",
+            name="ck_unit_concept_role_weight",
+        ),
+        CheckConstraint(
+            "confidence >= 0 AND confidence <= 1",
+            name="ck_unit_concept_confidence",
+        ),
+    )
+
+    unit_id: Mapped[UUID] = mapped_column(ForeignKey("units.id"), nullable=False)
+    concept_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_concepts.id"), nullable=False
+    )
+    assertion_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    role_weight: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    review_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    evidence_fragment_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("source_fragments.id")
+    )
+    evidence_reference: Mapped[str | None] = mapped_column(String(1024))
+    created_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str | None] = mapped_column(String(255))
+    ontology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    reviewer_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime | None] = mapped_column()
+
+
+class GraphBuild(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "graph_builds"
+    __table_args__ = (
+        CheckConstraint(
+            "embedding_dimensions > 0", name="ck_graph_build_embedding_dimensions"
+        ),
+    )
+
+    source_checksum: Mapped[str] = mapped_column(String(128), nullable=False)
+    ontology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    embedding_provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(255), nullable=False)
+    embedding_model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    embedding_dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding_preprocessing_version: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    fragment_index_name: Mapped[str | None] = mapped_column(String(255))
+    concept_index_name: Mapped[str | None] = mapped_column(String(255))
+    expected_counts: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    actual_counts: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    validation_report: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    failure_code: Mapped[str | None] = mapped_column(String(100))
+    completed_at: Mapped[datetime | None] = mapped_column()
+    activated_at: Mapped[datetime | None] = mapped_column()
+
+
 class Job(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "jobs"
 

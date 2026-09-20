@@ -18,5 +18,9 @@ def test_initial_migration_creates_expected_tables() -> None:
         "quiz_questions",
         "test_attempts",
         "audio_playbacks",
+        "knowledge_concepts",
+        "fragment_concept_assertions",
+        "concept_relation_assertions",
+        "unit_concept_assertions",
+        "graph_builds",
     } <= table_names
-

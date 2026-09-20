@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
+# SPDX-License-Identifier: Apache-2.0
+
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/dist
+**/coverage
+**/build
+**/.dart_tool
+**/.idea
+.env
+infra/backups/*.dump
+infra/backups/*.bak

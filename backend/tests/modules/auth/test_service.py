@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from dataclasses import replace
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -24,6 +25,25 @@ class MemoryAuthRepository:
     def create(self, user: AuthUser) -> AuthUser:
         self.users[user.email] = user
         return user
+
+    def update_profile(
+        self,
+        user_id,
+        changes: dict[str, object],
+    ) -> AuthUser | None:
+        user = self.get_by_id(user_id)
+        if user is None:
+            return None
+        updated = replace(user, **changes)
+        self.users[user.email] = updated
+        return updated
+
+    def update_password_hash(self, user_id, password_hash: str) -> bool:
+        user = self.get_by_id(user_id)
+        if user is None:
+            return False
+        self.users[user.email] = replace(user, password_hash=password_hash)
+        return True
 
 
 def build_service(clock=lambda: datetime(2026, 9, 18, tzinfo=timezone.utc)):
@@ -103,3 +123,91 @@ def test_admin_is_allowed_for_admin_role() -> None:
 
     assert service.authorize(admin, {"admin"}) is admin
 
+
+def test_update_profile_normalizes_optional_text() -> None:
+    service, _, _ = build_service()
+    user = service.register("student@example.com", "secure-password")
+
+    updated = service.update_profile(
+        user.id,
+        {
+            "full_name": "  Nguyễn An  ",
+            "school_name": "   ",
+            "class_name": " 7A1 ",
+            "gender": "female",
+            "date_of_birth": date(2013, 5, 10),
+        },
+    )
+
+    assert updated.full_name == "Nguyễn An"
+    assert updated.school_name is None
+    assert updated.class_name == "7A1"
+
+
+def test_update_profile_rejects_unknown_gender() -> None:
+    service, _, _ = build_service()
+    user = service.register("student@example.com", "secure-password")
+
+    with pytest.raises(ApplicationError) as captured:
+        service.update_profile(user.id, {"gender": "unknown"})
+
+    assert captured.value.code == "profile_gender_invalid"
+
+
+def test_change_password_requires_current_password_and_updates_login() -> None:
+    service, _, _ = build_service()
+    user = service.register("student@example.com", "secure-password")
+
+    service.change_password(
+        user.id,
+        current_password="secure-password",
+        new_password="new-secure-password",
+        confirm_password="new-secure-password",
+    )
+
+    assert service.login("student@example.com", "new-secure-password")
+    with pytest.raises(ApplicationError):
+        service.login("student@example.com", "secure-password")
+
+
+@pytest.mark.parametrize(
+    ("current", "new", "confirmation", "code"),
+    [
+        (
+            "wrong-password",
+            "new-secure-password",
+            "new-secure-password",
+            "current_password_invalid",
+        ),
+        (
+            "secure-password",
+            "different-password",
+            "mismatch-password",
+            "password_confirmation_mismatch",
+        ),
+        (
+            "secure-password",
+            "secure-password",
+            "secure-password",
+            "password_unchanged",
+        ),
+    ],
+)
+def test_change_password_rejects_invalid_requests(
+    current: str,
+    new: str,
+    confirmation: str,
+    code: str,
+) -> None:
+    service, _, _ = build_service()
+    user = service.register("student@example.com", "secure-password")
+
+    with pytest.raises(ApplicationError) as captured:
+        service.change_password(
+            user.id,
+            current_password=current,
+            new_password=new,
+            confirm_password=confirmation,
+        )
+
+    assert captured.value.code == code

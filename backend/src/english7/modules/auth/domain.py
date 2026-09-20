@@ -1,6 +1,14 @@
 from dataclasses import dataclass
 from datetime import date
+from enum import StrEnum
 from uuid import UUID, uuid4
+
+
+class ProfileGender(StrEnum):
+    MALE = "male"
+    FEMALE = "female"
+    OTHER = "other"
+    PREFER_NOT_TO_SAY = "prefer_not_to_say"
 
 
 @dataclass(frozen=True, slots=True)

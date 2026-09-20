@@ -113,10 +113,22 @@ class OpenRouterProvider:
             )
             content = response["choices"][0]["message"]["content"]
             parsed = json.loads(content)
+            citations = []
+            for item in parsed.get("citations", []):
+                val = item.get("fragment_id") if isinstance(item, dict) else item
+                try:
+                    citations.append(UUID(str(val)))
+                except (ValueError, TypeError):
+                    pass
+            lang_str = str(parsed.get("language", request.language.value)).strip().lower()
+            try:
+                lang = Language(lang_str)
+            except ValueError:
+                lang = request.language
             return AIResponse(
-                answer=str(parsed["answer"]).strip(),
-                language=Language(parsed["language"]),
-                citations=tuple(UUID(value) for value in parsed["citations"]),
+                answer=str(parsed.get("answer", "")).strip(),
+                language=lang,
+                citations=tuple(citations),
             )
         except Exception as error:
             if isinstance(error, AIProviderError):

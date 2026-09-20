@@ -19,6 +19,7 @@ class _QuizScreenState extends State<QuizScreen> {
   String _difficulty = 'adaptive';
   QuizSession? _session;
   QuizResult? _result;
+  final Map<String, String> _answers = {};
   int _remainingSeconds = 0;
   int _remainingPlays = 0;
   Timer? _timer;
@@ -72,6 +73,7 @@ class _QuizScreenState extends State<QuizScreen> {
         _remainingSeconds = session.durationMinutes * 60;
         _remainingPlays = _options!.maxAudioPlays;
         _result = null;
+        _answers.clear();
         _isStarting = false;
       });
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -93,7 +95,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> _submit() async {
     _timer?.cancel();
-    final result = await widget.api.submitQuiz(_session!.id);
+    final result = await widget.api.submitQuiz(_session!.id, _answers);
     if (mounted) setState(() => _result = result);
   }
 
@@ -121,6 +123,7 @@ class _QuizScreenState extends State<QuizScreen> {
               onPressed: () => setState(() {
                 _session = null;
                 _result = null;
+                _answers.clear();
               }),
               icon: const Icon(Icons.refresh),
               label: const Text('Làm bài mới'),
@@ -180,6 +183,28 @@ class _QuizScreenState extends State<QuizScreen> {
                     Text(
                       _session!.questions[i].prompt,
                       style: const TextStyle(fontSize: 15, height: 1.4),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final option in _session!.questions[i].options)
+                          ChoiceChip(
+                            label: Text(option),
+                            selected:
+                                _answers[_session!.questions[i].id] == option,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _answers[_session!.questions[i].id] = option;
+                                } else {
+                                  _answers.remove(_session!.questions[i].id);
+                                }
+                              });
+                            },
+                          ),
+                      ],
                     ),
                   ],
                 ),

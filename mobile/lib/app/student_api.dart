@@ -181,7 +181,12 @@ class QuizOptions {
 class QuizQuestion {
   final String id;
   final String prompt;
-  const QuizQuestion(this.id, this.prompt);
+  final List<String> options;
+  const QuizQuestion(
+    this.id,
+    this.prompt, {
+    this.options = const ['True', 'False', 'Not given'],
+  });
 }
 
 class QuizSession {
@@ -220,5 +225,5 @@ abstract interface class StudentApi {
   Future<QuizOptions> loadQuizOptions();
   Future<TutorResult> askTutor(TutorQuery query);
   Future<QuizSession> createQuiz(QuizSetup setup);
-  Future<QuizResult> submitQuiz(String quizId);
+  Future<QuizResult> submitQuiz(String quizId, [Map<String, String>? answers]);
 }

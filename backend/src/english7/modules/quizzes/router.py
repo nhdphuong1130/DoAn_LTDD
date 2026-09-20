@@ -23,6 +23,7 @@ class GenerateQuizRequest(BaseModel):
 class QuizQuestionItem(BaseModel):
     id: UUID
     prompt: str
+    options: list[str] = ["True", "False", "Not given"]
 
 
 class QuizResponse(BaseModel):
@@ -84,7 +85,16 @@ def generate_quiz(
                 select(QuizQuestion).where(QuizQuestion.quiz_id == draft.id)
             ).all()
             questions = [
-                QuizQuestionItem(id=q.id, prompt=q.prompt) for q in db_questions
+                QuizQuestionItem(
+                    id=q.id,
+                    prompt=q.prompt,
+                    options=list(
+                        (q.answer_payload or {}).get(
+                            "options", ["True", "False", "Not given"]
+                        )
+                    ),
+                )
+                for q in db_questions
             ]
     except Exception:
         pass
@@ -97,12 +107,19 @@ def generate_quiz(
     )
 
 
+class SubmitQuizRequest(BaseModel):
+    answers: dict[str, str] = Field(default_factory=dict)
+
+
 @router.post("/{quiz_id}/submit", response_model=QuizSubmitResponse)
 def submit_quiz(
     quiz_id: UUID,
     _user: Annotated[AuthUser, Depends(get_current_user)],
+    payload: SubmitQuizRequest | None = None,
 ) -> QuizSubmitResponse:
-    total = 10
+    total = 0
+    correct = 0
+    answers = payload.answers if payload is not None else {}
     try:
         with get_session_factory()() as session:
             db_questions = session.scalars(
@@ -110,7 +127,17 @@ def submit_quiz(
             ).all()
             if db_questions:
                 total = len(db_questions)
+                for q in db_questions:
+                    user_ans = answers.get(str(q.id))
+                    expected = (q.answer_payload or {}).get("correct")
+                    if (
+                        user_ans
+                        and expected
+                        and user_ans.strip().lower() == expected.strip().lower()
+                    ):
+                        correct += 1
+            else:
+                total = 10
     except Exception:
-        pass
-    correct = max(int(total * 0.8), 1)
+        total = 10
     return QuizSubmitResponse(correct=correct, total=total)

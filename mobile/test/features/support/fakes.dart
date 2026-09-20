@@ -144,11 +144,23 @@ class FakeStudentApi implements StudentApi {
     'quiz-1',
     setup.durationMinutes,
     setup.difficulty,
-    const [QuizQuestion('question-1', 'Choose a healthy habit')],
+    const [
+      QuizQuestion(
+        'question-1',
+        'Choose a healthy habit',
+        options: ['True', 'False', 'Not given'],
+      ),
+    ],
   );
 
   @override
-  Future<QuizResult> submitQuiz(String quizId) async => const QuizResult(8, 10);
+  Future<QuizResult> submitQuiz(
+    String quizId, [
+    Map<String, String>? answers,
+  ]) async =>
+      (answers == null || answers.isEmpty)
+          ? const QuizResult(0, 10)
+          : const QuizResult(8, 10);
 }
 
 class FakeImageSelector implements ImageSelector {

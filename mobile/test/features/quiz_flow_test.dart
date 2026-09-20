@@ -35,9 +35,46 @@ void main() {
       await tester.pump();
       expect(find.text('Lượt nghe còn lại: 1'), findsOneWidget);
 
+      expect(find.text('True'), findsOneWidget);
+      expect(find.text('False'), findsOneWidget);
+      expect(find.text('Not given'), findsOneWidget);
+
+      await tester.tap(find.text('True'));
+      await tester.pumpAndSettle();
+
       await tester.tap(find.text('Nộp bài'));
       await tester.pumpAndSettle();
       expect(find.text('Kết quả: 8/10'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'submitting quiz without answers yields zero score',
+    (tester) async {
+      await tester.pumpWidget(
+        English7App(api: FakeStudentApi(), imageSelector: FakeImageSelector()),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('email-field')),
+        'student@example.com',
+      );
+      await tester.enterText(
+        find.byKey(const Key('password-field')),
+        'password',
+      );
+      await tester.tap(find.text('Đăng nhập'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.quiz_outlined));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('15 phút'));
+      await tester.tap(find.text('Bắt đầu'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Nộp bài'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kết quả: 0/10'), findsOneWidget);
     },
   );
 }

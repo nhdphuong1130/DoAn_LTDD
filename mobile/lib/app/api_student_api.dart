@@ -305,9 +305,14 @@ class ApiStudentApi implements StudentApi {
     final questionsList = (response.body['questions'] as List<dynamic>? ?? const [])
         .map((raw) {
           final item = raw as Map<String, dynamic>;
+          final rawOptions = item['options'] as List<dynamic>?;
+          final options = rawOptions != null
+              ? rawOptions.map((e) => e.toString()).toList(growable: false)
+              : const ['True', 'False', 'Not given'];
           return QuizQuestion(
             item['id'] as String,
             item['prompt'] as String,
+            options: options,
           );
         })
         .toList(growable: false);
@@ -320,10 +325,10 @@ class ApiStudentApi implements StudentApi {
   }
 
   @override
-  Future<QuizResult> submitQuiz(String quizId) async {
+  Future<QuizResult> submitQuiz(String quizId, [Map<String, String>? answers]) async {
     final response = await _client.postJson(
       '/api/v1/quizzes/$quizId/submit',
-      const {},
+      {'answers': answers ?? const {}},
     );
     return QuizResult(
       response.body['correct'] as int,

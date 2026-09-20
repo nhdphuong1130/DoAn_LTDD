@@ -2,7 +2,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from english7.api.errors import ApplicationError
@@ -423,6 +423,49 @@ class SQLAlchemyKnowledgeRepository:
         self, projection: KnowledgeProjection, identity: EmbeddingIdentity
     ) -> GraphBuildRecord:
         with self._session_factory() as session, session.begin():
+            if session.get_bind().dialect.name == "mssql":
+                lock_result = session.execute(
+                    text(
+                        "SET NOCOUNT ON; DECLARE @result int; "
+                        "EXEC @result = sp_getapplock "
+                        "@Resource = 'english7:knowledge-graph-build', "
+                        "@LockMode = 'Exclusive', @LockOwner = 'Transaction', "
+                        "@LockTimeout = 0; SELECT @result"
+                    )
+                ).scalar_one()
+                if int(lock_result) < 0:
+                    raise ApplicationError(
+                        "graph_build_in_progress",
+                        "Another knowledge graph build is in progress",
+                        409,
+                    )
+
+            building = session.scalar(
+                select(GraphBuild)
+                .where(GraphBuild.status == GraphBuildStatus.BUILDING.value)
+                .with_for_update()
+            )
+            if building is not None:
+                raise ApplicationError(
+                    "graph_build_in_progress",
+                    "Another knowledge graph build is in progress",
+                    409,
+                )
+            active = session.scalar(
+                select(GraphBuild).where(
+                    GraphBuild.status == GraphBuildStatus.ACTIVE.value,
+                    GraphBuild.source_checksum == projection.source_checksum,
+                    GraphBuild.ontology_version == projection.ontology_version,
+                    GraphBuild.embedding_provider == identity.provider,
+                    GraphBuild.embedding_model == identity.model,
+                    GraphBuild.embedding_model_version == identity.model_version,
+                    GraphBuild.embedding_dimensions == identity.dimensions,
+                    GraphBuild.embedding_preprocessing_version
+                    == identity.preprocessing_version,
+                )
+            )
+            if active is not None:
+                return self._build_record(active)
             row = GraphBuild(
                 source_checksum=projection.source_checksum,
                 ontology_version=projection.ontology_version,
@@ -436,6 +479,8 @@ class SQLAlchemyKnowledgeRepository:
             )
             session.add(row)
             session.flush()
+            row.fragment_index_name = f"fragment_embedding_{row.id.hex}"
+            row.concept_index_name = f"concept_embedding_{row.id.hex}"
             result = self._build_record(row)
         return result
 

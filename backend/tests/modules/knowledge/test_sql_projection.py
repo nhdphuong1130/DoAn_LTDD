@@ -205,11 +205,17 @@ def test_activation_retires_only_previous_active_build() -> None:
     identity = EmbeddingIdentity("fake", "model", "v1", 2, "", "", "v1")
     projection = KnowledgeProjection.create(ontology_version="v1")
     old = repository.start_build(projection, identity)
-    other = repository.start_build(projection, identity)
-    new = repository.start_build(projection, identity)
     with factory() as session, session.begin():
         session.get(GraphBuild, old.id).status = GraphBuildStatus.ACTIVE.value
+    other = repository.start_build(
+        KnowledgeProjection.create(ontology_version="v2"), identity
+    )
+    with factory() as session, session.begin():
         session.get(GraphBuild, other.id).status = GraphBuildStatus.RETIRED.value
+    new = repository.start_build(
+        KnowledgeProjection.create(ontology_version="v3"), identity
+    )
+    with factory() as session, session.begin():
         session.get(GraphBuild, new.id).status = GraphBuildStatus.VALIDATED.value
 
     repository.activate_build(new.id)
@@ -229,3 +235,43 @@ def test_activation_rejects_unvalidated_build() -> None:
         repository.activate_build(build.id)
 
     assert captured.value.code == "graph_build_not_validated"
+
+
+def test_start_build_rejects_an_existing_candidate() -> None:
+    repository, _factory = repository_fixture()
+    identity = EmbeddingIdentity("fake", "model", "v1", 2, "", "", "v1")
+    projection = KnowledgeProjection.create(ontology_version="v1")
+    repository.start_build(projection, identity)
+
+    with pytest.raises(ApplicationError) as captured:
+        repository.start_build(projection, identity)
+
+    assert captured.value.code == "graph_build_in_progress"
+
+
+def test_start_build_persists_deterministic_index_names() -> None:
+    repository, factory = repository_fixture()
+    identity = EmbeddingIdentity("fake", "model", "v1", 2, "", "", "v1")
+
+    build = repository.start_build(
+        KnowledgeProjection.create(ontology_version="v1"), identity
+    )
+
+    with factory() as session:
+        row = session.get(GraphBuild, build.id)
+        assert row.fragment_index_name == f"fragment_embedding_{build.id.hex}"
+        assert row.concept_index_name == f"concept_embedding_{build.id.hex}"
+
+
+def test_start_build_reuses_matching_active_build() -> None:
+    repository, factory = repository_fixture()
+    identity = EmbeddingIdentity("fake", "model", "v1", 2, "", "", "v1")
+    projection = KnowledgeProjection.create(ontology_version="v1")
+    first = repository.start_build(projection, identity)
+    with factory() as session, session.begin():
+        session.get(GraphBuild, first.id).status = GraphBuildStatus.ACTIVE.value
+
+    reused = repository.start_build(projection, identity)
+
+    assert reused.id == first.id
+    assert reused.status is GraphBuildStatus.ACTIVE

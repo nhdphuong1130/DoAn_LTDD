@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     embedding_query_prefix: str = ""
     embedding_passage_prefix: str = ""
     embedding_preprocessing_version: str = "v1"
+    knowledge_graph_index_timeout_seconds: float = 60.0
     retrieval_top_k: int | None = None
     retrieval_min_score: float | None = None
     retrieval_graph_depth: int | None = None

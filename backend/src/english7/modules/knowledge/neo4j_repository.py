@@ -1,6 +1,6 @@
 import re
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -176,6 +176,8 @@ class BuildIdentifiers:
 class ProjectionEmbeddings:
     fragments: dict[UUID, list[float]]
     concepts: dict[UUID, list[float]]
+    fragment_input_hashes: dict[UUID, str] = field(default_factory=dict)
+    concept_input_hashes: dict[UUID, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,7 +255,6 @@ class VersionedNeo4jRepository:
                     f"CREATE CONSTRAINT {name} IF NOT EXISTS "
                     f"FOR (node:{label}) REQUIRE (node.sql_id, node.build_id) IS UNIQUE"
                 ).consume()
-        self.ensure_indexes(build_id, identity)
 
     def ensure_indexes(self, build_id: UUID, identity: EmbeddingIdentity) -> None:
         names = BuildIdentifiers.from_build_id(build_id)
@@ -343,6 +344,7 @@ class VersionedNeo4jRepository:
                 "printed_page": item.printed_page,
                 "properties": item.properties,
                 "embedding": embeddings.fragments[item.id],
+                "embedding_input_hash": embeddings.fragment_input_hashes.get(item.id),
             }
             for item in projection.fragments
         ]
@@ -352,7 +354,9 @@ class VersionedNeo4jRepository:
             "{sql_id: row.sql_id, build_id: $build_id}) "
             "SET node.text = row.text, node.pdf_page = row.pdf_page, "
             "node.printed_page = row.printed_page, node.verified = true, "
-            "node.embedding = row.embedding, node += row.properties",
+            "node.embedding = row.embedding, "
+            "node.embedding_input_hash = row.embedding_input_hash, "
+            "node += row.properties",
             fragment_rows,
             build_id,
         )
@@ -364,6 +368,7 @@ class VersionedNeo4jRepository:
                 "concept_text": item.concept_text,
                 "properties": item.properties,
                 "embedding": embeddings.concepts[item.id],
+                "embedding_input_hash": embeddings.concept_input_hashes.get(item.id),
             }
             for item in projection.concepts
         ]
@@ -374,7 +379,9 @@ class VersionedNeo4jRepository:
             "SET node.concept_type = row.concept_type, "
             "node.canonical_name = row.canonical_name, "
             "node.concept_text = row.concept_text, node.verified = true, "
-            "node.embedding = row.embedding, node += row.properties",
+            "node.embedding = row.embedding, "
+            "node.embedding_input_hash = row.embedding_input_hash, "
+            "node += row.properties",
             concept_rows,
             build_id,
         )

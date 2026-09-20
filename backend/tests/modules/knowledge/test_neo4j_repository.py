@@ -170,12 +170,15 @@ def test_projection_write_never_uses_unrestricted_variable_traversal() -> None:
     assert all("[*" not in call.query for call in driver.calls)
 
 
-def test_prepare_build_uses_configured_embedding_dimensions() -> None:
+def test_indexes_are_created_after_build_preparation_with_configured_dimensions() -> None:
     driver = Driver()
     repository = VersionedNeo4jRepository(driver)
     identity = EmbeddingIdentity("fake", "model", "v1", 384, "", "", "v1")
 
     repository.prepare_build(BUILD_ID, identity)
+    assert not [call.query for call in driver.calls if "VECTOR INDEX" in call.query]
+
+    repository.ensure_indexes(BUILD_ID, identity)
 
     index_queries = [call.query for call in driver.calls if "VECTOR INDEX" in call.query]
     assert len(index_queries) == 2

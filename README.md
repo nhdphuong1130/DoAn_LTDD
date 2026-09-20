@@ -1,194 +1,168 @@
-<!--
-SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
-SPDX-License-Identifier: Apache-2.0
--->
-
 # English 7 Grounded Learning Platform
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Python: 3.12](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![Flutter: 3.27+](https://img.shields.io/badge/Flutter-3.27+-02569B.svg)](https://flutter.dev/)
-[![Docker: Ready](https://img.shields.io/badge/Docker-Compose-2496ED.svg)](infra/docker/)
+Nền tảng học tiếng Anh lớp 7 có gia sư AI sư phạm chuẩn mực, được tiếp đất (grounded) trực tiếp vào nội dung sách giáo khoa *Tiếng Anh 7 – Global Success* (Tập 1 và Tập 2).
 
-An open-source, API-first pedagogical learning platform grounded exclusively in verified content from the Vietnamese Grade 7 English curriculum (*Tiếng Anh 7 – Global Success* Units 1–12 and Reviews 1–4).
+Hệ thống này cho phép:
 
-Built for the **Olympic Tin học Sinh viên (OLP) Open Source Competition Standard**, strictly adhering to Clean Architecture, evidence-first retrieval, and comprehensive test coverage.
-
----
-
-## Architecture Overview
-
-```mermaid
-flowchart TD
-    subgraph ClientLayer ["Mobile Client (Flutter)"]
-        UI["Student Shell & Feature Screens\n(Lessons, Quizzes, Tutor, Profile)"]
-        API_CLIENT["StudentApi Interface\n(HttpStudentApi / Secure Storage)"]
-        UI --> API_CLIENT
-    end
-
-    subgraph APILayer ["Backend Service (FastAPI)"]
-        ROUTERS["Presentation Routers\n(auth, media, quizzes, tutor)"]
-        SERVICES["Domain & Application Services\n(RetrievalService, QuizService, AuthService)"]
-        ROUTERS --> SERVICES
-    end
-
-    subgraph RetrievalEngine ["Grounded GraphRAG Engine"]
-        FASTEMBED["FastEmbed Service\n(BAAI/bge-small-en-v1.5, 384d)"]
-        RRF["Reciprocal Rank Fusion\n(Vector + Graph Search)"]
-        SERVICES --> FASTEMBED
-        SERVICES --> RRF
-    end
-
-    subgraph StorageLayer ["Infrastructure & Persistence"]
-        SQL["SQL Server 2022\n(Users, Attempts, Textbook Structure)"]
-        NEO4J["Neo4j 5.26\n(Ontology & Dual Vector Indexes)"]
-        MINIO["MinIO S3 Storage\n(Audio Tracks & Textbook Images)"]
-        SERVICES --> SQL
-        RRF --> NEO4J
-        SERVICES --> MINIO
-    end
-
-    API_CLIENT -->|HTTPS / JSON| ROUTERS
-```
+- Học bài học tương tác chuẩn SGK từ Unit 1 đến Unit 12 và các bài Review 1, 2, 3, 4.
+- Nghe bài nghe audio bản ngữ chất lượng cao với trình phát âm thanh tích hợp.
+- Làm các bài tập tương tác: bảng phát âm ngữ âm IPA (`/ə/`, `/ɜː/`), đọc hiểu True/False, nối từ vựng, trắc nghiệm.
+- Hỏi đáp gia sư AI thông minh với cam kết 100% câu trả lời có trích dẫn xuất xứ sách giáo khoa (`[Unit X, Trang Y]`).
+- Tải ảnh bài tập từ camera hoặc thư viện để gia sư AI nhận diện và hướng dẫn giải bài.
+- Luyện tập bài thi trắc nghiệm tính giờ với giới hạn số lần nghe audio và chấm điểm tự động.
+- Quản lý hồ sơ học sinh cá nhân (thông tin trường lớp, ngày sinh, đổi mật khẩu an toàn).
 
 ---
 
-## Core Capabilities
+## Kiến trúc Hệ thống
 
-1. **Pedagogical GraphRAG & Vector Search**:
-   - Dual vector indexing for `SourceFragment` and `KnowledgeConcept` using local FastEmbed (`bge-small-en-v1.5`, 384d).
-   - Knowledge ontology entities: `Topic`, `GrammarRule`, `Vocabulary`, and `PronunciationSound`.
-   - Weighted multi-hop graph traversal across pedagogical relationships (`TEACHES`, `EXPLAINS`, `PRACTICES`).
-   - Grounded citations: every explanation provides unit and page references (`[Unit X, Page Y]`).
+Hệ thống gồm các thành phần chính:
 
-2. **Complete Grade 7 Curriculum**:
-   - Covers both Semester 1 (Units 1–6 + Reviews 1–2) and Semester 2 (Units 7–12 + Reviews 3–4).
-   - Multi-source audio streaming with MinIO S3 storage and local candidate fallback.
-   - Interactive exercise activities (pronunciation tables, True/False, matching, gap fills).
+- `sqlserver`: Microsoft SQL Server 2022 lưu trữ dữ liệu người dùng, hồ sơ, bài thi và cấu trúc bài học.
+- `neo4j`: Cơ sở dữ liệu đồ thị Neo4j 5.26 lưu trữ Đồ thị Tri thức Sư phạm (Pedagogical Knowledge Graph) và chỉ mục vector kép (Dual Vector Indexing).
+- `minio`: Lưu trữ đối tượng tương thích S3 cho các file âm thanh MP3 và hình ảnh bài học.
+- `backend`: REST API xây dựng bằng Python 3.12 (FastAPI, SQLAlchemy, FastEmbed, Pytest).
+- `worker`: Dịch vụ chạy nền xử lý tác vụ nạp tri thức và lập chỉ mục.
+- `mobile`: Ứng dụng di động học sinh viết bằng Flutter / Dart 3.x (hỗ trợ Android & iOS).
 
-3. **Student Profile & Session Security**:
-   - Personal profile dashboard (avatar, school, grade, date of birth, bio).
-   - Secure Argon2id password hashing and stateless JWT token authentication.
-   - Session auto-restore and token persistence via Flutter secure storage.
-
-4. **Timed Quizzes & Evaluation**:
-   - Customizable difficulty and duration with audio playback play count enforcement.
-   - Instant scoring with answer review.
+Luồng truy xuất tri thức gia sư (GraphRAG):
+1. Học sinh gửi câu hỏi hoặc ảnh chụp bài tập.
+2. Backend trích xuất câu hỏi và sinh vector nhúng cục bộ qua `FastEmbed` (`BAAI/bge-small-en-v1.5`, 384 chiều).
+3. Thực hiện truy vấn vector kép và duyệt đồ thị tri thức đa bước (multi-hop graph traversal).
+4. Hợp nhất điểm số qua thuật toán Reciprocal Rank Fusion (RRF) để chọn đoạn trích SGK chuẩn nhất.
+5. Mô hình ngôn ngữ tổng hợp lời giảng sư phạm kèm trích dẫn số trang và Unit gửi về cho học sinh.
 
 ---
 
-## Standardized Monorepo Structure
+## Công nghệ Chính
+
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0, Alembic, FastEmbed, PyJWT, Argon2-cffi.
+- **Mobile:** Flutter 3.27+, Dart, HTTP Client, Flutter Secure Storage, Audioplayers.
+- **Cơ sở dữ liệu:** Microsoft SQL Server 2022, Neo4j Community 5.26, MinIO S3 Storage.
+- **Hạ tầng cục bộ:** Docker & Docker Compose, GNU Make.
+
+---
+
+## Cấu trúc Thư mục
 
 ```text
-.
-├── .agents/             # AI agent safety guidelines and quality review checklists
-├── .github/             # GitHub Actions CI/CD workflows, PR and issue templates
-├── backend/             # Python 3.12 FastAPI backend service, GraphRAG, and tests
-├── mobile/              # Flutter mobile student application and widget tests
-├── data/                # Curriculum manifests, textbook structure, and metadata
-├── evaluation/          # Retrieval-augmented generation evaluation ground truth
-├── infra/               # Local Docker topologies, deployment manifests, backups
-│   ├── docker/          # Compose files and local service documentation
-│   ├── deploy/          # Production deployment candidates
-│   └── backups/         # Destination for database recovery dumps (git-ignored)
-├── scripts/             # Categorized repository automation scripts
-│   ├── audit/           # Secret scans, config checks, compose validation
-│   ├── dev/             # Knowledge graph indexing and interactive query tests
-│   └── ops/             # Database export, import, backup, and restore routines
-├── docs/                # Architecture, API specifications, and operational guides
-│   ├── architecture/    # Clean architecture baseline, GraphRAG pipeline, data models
-│   ├── superpowers/     # Feature plans, specs, and verification records
-│   ├── project-structure.md
-│   └── dependencies.md
-├── Makefile             # Canonical developer commands and build automation
-├── AGENTS.md            # Agent instructions and pedagogical guardrails
-├── CHANGELOG.md         # Version history following Keep a Changelog
-├── CONTRIBUTING.md      # Contribution workflow and commit conventions
-├── CODE_OF_CONDUCT.md   # Contributor Covenant v2.1
-├── LICENSE              # Apache-2.0 License
-├── SECURITY.md          # Vulnerability disclosure policy
-├── .dockerignore        # Container build ignore rules
-├── .env.example         # Environment template with dummy placeholders
-└── README.md            # Project overview and quickstart
+backend/                Mã nguồn Backend API (FastAPI, GraphRAG, 163 unit tests)
+mobile/                 Mã nguồn Ứng dụng di động Flutter (33 widget & unit tests)
+backups/                Thư mục sao lưu CSDL SQL Server (.bak, .sql)
+db_scripts/             Kịch bản SQL khởi tạo lược đồ và seed CSDL
+docs/                   Tài liệu thiết kế, hướng dẫn sử dụng và cài đặt
+data/                   Dữ liệu siêu dữ liệu bài học và manifest SGK
+evaluation/             Bộ dữ liệu đánh giá độ chuẩn xác truy xuất
+scripts/                Các kịch bản tự động hóa, build knowledge graph, test queries
+docker-compose.yml      Cấu hình cụm Docker Compose cục bộ
+Makefile                Bộ lệnh Make điều khiển toàn bộ hệ thống
+DESIGN.md               Tài liệu thiết kế kiến trúc và giao diện hệ thống
+README.md               Tài liệu giới thiệu và hướng dẫn tổng quan dự án
 ```
 
-For full details, see [`docs/project-structure.md`](docs/project-structure.md).
+---
+
+## Yêu cầu Trước Khi Chạy
+
+Cần cài sẵn trên máy:
+
+- Docker & Docker Compose plugin (`docker compose`)
+- GNU Make (`make`)
+- Python 3.12 (khuyến nghị kèm công cụ quản lý gói `uv`)
+- Flutter SDK (bản 3.27 trở lên)
+
+Kiểm tra nhanh phiên bản:
+
+```bash
+docker --version
+docker compose version
+make --version
+python3 --version
+flutter --version
+```
 
 ---
 
-## Developer Quickstart
+## Cách Chạy Hệ Thống Khi Mới Kéo Repo Về
 
-### Prerequisites
+### 1. Tạo file môi trường
 
-- **Linux / macOS / Windows (WSL2)**
-- **Docker & Docker Compose**
-- **Python 3.12** with [`uv`](https://github.com/astral-sh/uv)
-- **Flutter 3.27+**
+Sao chép từ file mẫu:
 
-### Setup & Launch
+```bash
+cp .env.example .env
+```
 
-1. **Configure Environment:**
-   ```bash
-   cp .env.example .env
-   ```
+### 2. Khởi động cụm dịch vụ Docker
 
-2. **Start Infrastructure Services:**
-   ```bash
-   make up
-   ```
+```bash
+make up
+```
 
-3. **Run All Tests:**
-   ```bash
-   make test
-   ```
+Kiểm tra trạng thái các container:
 
-4. **Run Static Analysis & Audits:**
-   ```bash
-   make analyze
-   make audit
-   ```
+```bash
+make ps
+```
 
-5. **Stop Services:**
-   ```bash
-   make down
-   ```
+Các cổng dịch vụ mặc định:
+- **Backend API:** `http://localhost:8000` (Tài liệu Swagger: `http://localhost:8000/docs`)
+- **SQL Server:** `localhost:1433`
+- **Neo4j Browser:** `http://localhost:7474`
+- **MinIO Console:** `http://localhost:9001`
+
+### 3. Nạp dữ liệu bài học và Xây dựng Đồ thị Tri thức
+
+```bash
+make seed
+```
+
+Lệnh này sẽ tự động khởi tạo dữ liệu giáo trình 12 Unit vào SQL Server và xây dựng đồ thị vector sư phạm vào Neo4j.
+
+### 4. Khởi chạy ứng dụng di động Flutter
+
+```bash
+cd mobile
+flutter run
+```
 
 ---
 
-## Makefile Command Reference
+## Danh Sách Lệnh Makefile Thường Dùng
 
-| Command | Purpose |
+| Lệnh | Ý nghĩa |
 |---|---|
-| `make help` | Display available targets and descriptions |
-| `make up` | Start Docker containers (SQL Server, Neo4j, MinIO, API, Worker) |
-| `make down` | Stop containers cleanly |
-| `make logs` | Follow live container logs |
-| `make test` | Run all backend (`pytest`) and mobile (`flutter test`) suites |
-| `make test-backend` | Run 160+ backend unit and modular pytest cases |
-| `make test-mobile` | Run 30+ Flutter widget and unit test cases |
-| `make analyze` | Run Flutter static analysis (0 errors, 0 warnings enforced) |
-| `make audit` | Audit repository for secrets, hardcoded configs, and compose syntax |
-| `make seed` | Seed textbook curriculum and populate Neo4j knowledge graph |
-| `make db-backup` | Create database backup dump |
-| `make db-restore` | Restore database from latest backup |
-| `make clean` | Clean cache directories and build outputs |
+| `make up` | Khởi động toàn bộ container dịch vụ ở chế độ chạy nền |
+| `make down` | Dừng và dọn dẹp các container |
+| `make ps` | Liệt kê trạng thái các container đang chạy |
+| `make logs` | Xem live log từ tất cả các container |
+| `make restart` | Khởi động lại toàn bộ dịch vụ |
+| `make test` | Chạy toàn bộ kiểm thử backend (`pytest`) và mobile (`flutter test`) |
+| `make test-backend` | Chạy 163 unit test backend |
+| `make test-mobile` | Chạy 33 unit và widget test mobile |
+| `make analyze` | Chạy phân tích cú pháp tĩnh Flutter (yêu cầu 0 lỗi, 0 cảnh báo) |
+| `make seed` | Nạp dữ liệu SGK và lập chỉ mục đồ thị tri thức |
+| `make backup-db` | Sao lưu CSDL SQL Server ra thư mục `backups/` |
+| `make restore FILE=backups/<file>.bak` | Khôi phục CSDL từ bản sao lưu |
+| `make clean` | Dọn dẹp các file cache `__pycache__`, `.pytest_cache`, `build` |
 
 ---
 
-## Documentation Index
+## Tài Khoản Mẫu Đăng Nhập Mặc Định
 
-- **Project Architecture**: [`docs/architecture/system-overview.md`](docs/architecture/system-overview.md)
-- **Project Structure**: [`docs/project-structure.md`](docs/project-structure.md)
-- **Dependencies Inventory**: [`docs/dependencies.md`](docs/dependencies.md)
-- **GraphRAG Ideation**: [`docs/architecture/graphrag-ideation.md`](docs/architecture/graphrag-ideation.md)
-- **Linux Setup**: [`docs/setup-linux.md`](docs/setup-linux.md)
-- **Windows Setup**: [`docs/setup-windows.md`](docs/setup-windows.md)
-- **Android Studio Guide**: [`docs/android-studio.md`](docs/android-studio.md)
-- **Agent Instructions**: [`AGENTS.md`](AGENTS.md)
-- **Review Checklists**: [`.agents/checklists/`](.agents/checklists/)
+| Vai trò | Email | Mật khẩu |
+|---|---|---|
+| Học sinh mẫu | `student@example.com` | `password` |
+| Quản trị viên | `admin@example.com` | `password` |
 
 ---
 
-## License
+## Tài Liệu Tham Khảo Thêm
 
-Licensed under the [Apache License, Version 2.0](LICENSE).
+- [Tài liệu Thiết kế Hệ thống](DESIGN.md)
+- [Hướng dẫn Sử dụng Chi tiết](docs/HUONG_DAN_SU_DUNG.md)
+- [Đặc tả Cấu trúc Dự án](docs/project-structure.md)
+- [Danh mục Thư viện Phụ thuộc](docs/dependencies.md)
+- [Hướng dẫn Cài đặt Linux](docs/setup-linux.md)
+- [Hướng dẫn Cài đặt Windows](docs/setup-windows.md)
+- [Hướng dẫn Android Studio](docs/android-studio.md)

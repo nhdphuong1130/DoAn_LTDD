@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-compose_file="${COMPOSE_FILE:-compose.yaml}"
+compose_file="${COMPOSE_FILE:-docker-compose.yml}"
 env_file="${COMPOSE_ENV_FILE:-.env.example}"
 required_services="api worker sqlserver neo4j minio minio-init"
 

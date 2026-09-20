@@ -120,8 +120,14 @@ def configure_runtime(
         embedding_dimensions=settings.embedding_dimensions,
         graph_result_limit=settings.retrieval_top_k,
     )
-    if not settings.openrouter_api_key or "replace" in str(settings.openrouter_api_key).lower():
+    key_str = (
+        settings.openrouter_api_key.get_secret_value()
+        if hasattr(settings.openrouter_api_key, "get_secret_value")
+        else str(settings.openrouter_api_key or "")
+    )
+    if settings.embedding_dimensions == 384 or not key_str or "replace" in key_str.lower():
         from english7.modules.knowledge.fastembed_service import FastEmbedService
+
         embedder = FastEmbedService()
     else:
         embedder = OpenRouterEmbedder(

@@ -77,14 +77,13 @@ def main():
         graph_result_limit=settings.retrieval_top_k,
     )
 
-    # Drop old index if dimension mismatch
     with neo4j_driver.session() as session:
         existing_indexes = session.run("SHOW INDEXES").data()
         for idx in existing_indexes:
-            if idx.get("name") in (settings.neo4j_vector_index, "knowledge_concept_embedding"):
+            if idx.get("type") == "VECTOR":
                 try:
                     session.run(f"DROP INDEX {idx['name']} IF EXISTS").consume()
-                    print(f"  ✓ Dropped existing index {idx['name']} for fresh recreation.")
+                    print(f"  ✓ Dropped existing vector index {idx['name']} for fresh recreation.")
                 except Exception as e:
                     print(f"  Notice dropping index {idx.get('name')}: {e}")
         session.run("MATCH (f:SourceFragment) WHERE size(f.embedding) <> 384 DETACH DELETE f").consume()

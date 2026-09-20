@@ -11,6 +11,7 @@ void main() {
       await tester.pumpWidget(
         English7App(api: FakeStudentApi(), imageSelector: FakeImageSelector()),
       );
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('email-field')),
         'student@example.com',

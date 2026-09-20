@@ -8,6 +8,7 @@ Future<void> login(WidgetTester tester, FakeStudentApi api) async {
   await tester.pumpWidget(
     English7App(api: api, imageSelector: FakeImageSelector()),
   );
+  await tester.pumpAndSettle();
   await tester.enterText(
     find.byKey(const Key('email-field')),
     'student@example.com',

@@ -46,10 +46,12 @@ class GroundedQuestionGenerator:
 
     @staticmethod
     def _clean_text(text: str) -> str:
-        """Remove markdown images, HTML tags, and normalize whitespace."""
+        """Remove markdown images, [image:...] refs, HTML tags, normalize whitespace."""
         import re
         # Remove markdown images: ![alt](url)
         text = re.sub(r"!\[[^\]]*\]\([^\)]*\)", "", text)
+        # Remove [image:...] style references
+        text = re.sub(r"\[image:[^\]]*\]", "", text)
         # Remove HTML tags
         text = re.sub(r"<[^>]+>", "", text)
         # Normalize whitespace
@@ -61,7 +63,7 @@ class GroundedQuestionGenerator:
         """Return True only for fragments suitable as True/False/Not given questions.
 
         Unsuitable fragments:
-        - Contain markdown images
+        - Contain markdown images or [image:...] refs
         - Contain raw Options lists (exercise format)
         - Contain matching arrows (->)
         - Too short to be meaningful
@@ -70,6 +72,9 @@ class GroundedQuestionGenerator:
         import re
         # Has markdown image syntax
         if re.search(r"!\[[^\]]*\]\([^\)]*\)", text):
+            return False
+        # Has [image:...] style reference
+        if re.search(r"\[image:[^\]]*\]", text):
             return False
         # Has raw Options list (exercise instructions)
         if re.search(r"Options:\s*\[", text):
@@ -114,11 +119,29 @@ class GroundedQuestionGenerator:
                 fragments = list(all_fragments)
 
             questions: list[GeneratedQuestion] = []
+
+            # Build the list of (fragment, clean_text, target_answer)
+            items = []
             for i in range(question_count):
                 frag = fragments[i % len(fragments)]
                 clean = self._clean_text(frag.normalized_text)
+                target = self._CORRECT_OPTIONS[i % len(self._CORRECT_OPTIONS)]
+                items.append((frag, clean, target))
 
-                prompt, correct = self._make_question(clean, i)
+            # Try one batch AI call for all questions (avoids rate-limit from N calls)
+            ai_results: list[tuple[str, str] | None] = [None] * question_count
+            if self._ai_provider is not None:
+                try:
+                    ai_results = self._ai_generate_batch(items)
+                except Exception:
+                    pass  # full batch failed → per-item fallback below
+
+            for i, (frag, clean, target) in enumerate(items):
+                ai = ai_results[i] if ai_results else None
+                if ai is not None:
+                    prompt, correct = ai
+                else:
+                    prompt, correct = self._make_fallback(clean, i)
                 answer = {
                     "options": list(self._CORRECT_OPTIONS),
                     "correct": correct,
@@ -132,23 +155,9 @@ class GroundedQuestionGenerator:
                 )
             return questions
 
-    def _make_question(self, clean_text: str, index: int) -> tuple[str, str]:
-        """Generate (prompt, correct_answer) for a fragment.
-
-        Uses AI when available; falls back to a round-robin distribution so
-        not every question has the same answer.
-        """
-        if self._ai_provider is not None:
-            try:
-                target = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
-                return self._ai_generate_question(clean_text, target_answer=target)
-            except Exception:
-                pass  # AI failed → fall through to deterministic fallback
-
-        # Deterministic fallback: cycle through True / False / Not given
-        # so the quiz at least has varied answer distribution.
-        fallback_correct = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
-        # Take first 120 chars, break at last complete word
+    def _make_fallback(self, clean_text: str, index: int) -> tuple[str, str]:
+        """Deterministic fallback: cycle True/False/Not given, use raw text snippet."""
+        correct = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
         statement = clean_text[:120].rstrip()
         if len(clean_text) > 120:
             last_space = statement.rfind(" ")
@@ -160,14 +169,16 @@ class GroundedQuestionGenerator:
             f"is the following statement True, False, or Not given?\n\n"
             f"\"{statement}\""
         )
-        return prompt, fallback_correct
+        return prompt, correct
 
-    def _ai_generate_question(self, clean_text: str, target_answer: str = "True") -> tuple[str, str]:
-        """Call OpenRouter to generate a True/False/Not given question.
+    def _ai_generate_batch(
+        self,
+        items: list[tuple[Any, str, str]],
+    ) -> list[tuple[str, str] | None]:
+        """Generate all questions in ONE AI call to avoid rate-limit.
 
-        Returns (prompt_for_student, correct_answer).
-        We tell the model WHICH answer to target so small free models reliably
-        produce varied questions instead of always choosing True.
+        Each item is (fragment, clean_text, target_answer).
+        Returns list of (prompt, correct) or None per item on parse failure.
         """
         import json as _json
         from urllib.request import Request as _Req, urlopen as _open
@@ -175,36 +186,35 @@ class GroundedQuestionGenerator:
         api_key = self._ai_provider._api_key.get_secret_value()
         model = self._ai_provider._model
         endpoint = self._ai_provider._endpoint
-        timeout = min(self._ai_provider._timeout, 20)
+        timeout = min(self._ai_provider._timeout, 60)
 
-        instructions = {
-            "True": (
-                "Write a statement that is DIRECTLY and CLEARLY confirmed by the passage. "
-                "The statement must be True."
-            ),
-            "False": (
-                "Write a statement that CONTRADICTS or is WRONG according to the passage. "
-                "Change a key fact (a number, name, place, or action) so the statement is False."
-            ),
-            "Not given": (
-                "Write a statement about a related topic that is NOT mentioned anywhere in the passage. "
-                "The statement must be impossible to confirm or deny from the passage alone."
-            ),
+        type_instructions = {
+            "True": "Write a statement DIRECTLY confirmed by the passage (answer: True).",
+            "False": "Write a statement that CONTRADICTS the passage by changing a key fact (answer: False).",
+            "Not given": "Write a statement about a related topic NOT mentioned in the passage (answer: Not given).",
         }
-        instruction = instructions.get(target_answer, instructions["True"])
+
+        passages_json = []
+        for idx, (_frag, clean, target) in enumerate(items):
+            passages_json.append({
+                "id": idx,
+                "passage": clean[:300],
+                "instruction": type_instructions.get(target, type_instructions["True"]),
+                "required_answer": target,
+            })
 
         system = (
             "You are an English 7 quiz item writer. "
-            "Given a textbook passage and an instruction, create exactly ONE statement. "
-            "Return ONLY valid JSON with two keys: "
-            "{\"statement\": \"<the statement>\", \"correct\": \"<True|False|Not given>\"}"
+            "For each passage, follow the instruction to write exactly one statement. "
+            "Return a JSON object with key 'questions' containing an array. "
+            "Each array element: {\"id\": <number>, \"statement\": \"...\", \"correct\": \"True|False|Not given\"}. "
+            "The 'correct' field MUST match the required_answer for each passage."
         )
         user = (
-            f"Passage:\n{clean_text[:400]}\n\n"
-            f"Instruction: {instruction}\n\n"
-            f"The correct answer for your statement MUST be: {target_answer}\n"
-            "Return JSON."
+            "Generate quiz questions for each passage below.\n\n"
+            + _json.dumps({"passages": passages_json}, ensure_ascii=False)
         )
+
         payload = {
             "model": model,
             "messages": [
@@ -226,18 +236,28 @@ class GroundedQuestionGenerator:
         with _open(req, timeout=timeout) as resp:
             data = _json.loads(resp.read().decode("utf-8"))
         content = _json.loads(data["choices"][0]["message"]["content"])
-        statement = str(content.get("statement", "")).strip()
-        correct = str(content.get("correct", "True")).strip()
-        if correct not in self._CORRECT_OPTIONS:
-            correct = "True"
-        if not statement:
-            raise ValueError("AI returned empty statement")
-        prompt = (
-            f"According to the English 7 Global Success textbook, "
-            f"is the following statement True, False, or Not given?\n\n"
-            f"\"{statement}\""
-        )
-        return prompt, correct
+        raw_questions = content.get("questions", [])
+
+        # Map results back by id
+        result_map: dict[int, tuple[str, str]] = {}
+        for item in raw_questions:
+            try:
+                idx = int(item["id"])
+                statement = str(item.get("statement", "")).strip()
+                correct = str(item.get("correct", "True")).strip()
+                if correct not in self._CORRECT_OPTIONS:
+                    correct = self._CORRECT_OPTIONS[idx % len(self._CORRECT_OPTIONS)]
+                if statement:
+                    prompt = (
+                        f"According to the English 7 Global Success textbook, "
+                        f"is the following statement True, False, or Not given?\n\n"
+                        f"\"{statement}\""
+                    )
+                    result_map[idx] = (prompt, correct)
+            except (KeyError, ValueError, TypeError):
+                continue
+
+        return [result_map.get(i) for i in range(len(items))]
 
 
 @dataclass(slots=True)

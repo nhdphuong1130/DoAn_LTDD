@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Top-level `Makefile` orchestrating Docker environment, backend tests, Flutter analysis, and security audits.
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
+### Changed
+- Filtered unsuitable fragments (images, lists, arrows) and cleaned prompts in quiz generator.
+- Improved quiz question generation with targeted AI True/False/Not given answers and single-batch requests.
+
 ## [0.1.0] - 2026-09-21
 
 ### Added

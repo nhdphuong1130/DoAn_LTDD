@@ -105,6 +105,27 @@ class SQLAlchemyQuizRepository:
                     )
                     for source_id in item.source_fragment_ids
                 )
+            audio_url = next(
+                (
+                    item.answer.get("audio_url")
+                    for item in questions
+                    if isinstance(item.answer, dict) and item.answer.get("audio_url")
+                ),
+                None,
+            )
+            audio_title = next(
+                (
+                    item.answer.get("audio_title")
+                    for item in questions
+                    if isinstance(item.answer, dict) and item.answer.get("audio_title")
+                ),
+                None,
+            )
             return QuizDraft(
-                quiz.id, duration_minutes, difficulty, len(questions)
+                quiz.id,
+                duration_minutes,
+                difficulty,
+                len(questions),
+                audio_url=audio_url,
+                audio_title=audio_title,
             )

@@ -8,7 +8,7 @@ from english7.modules.quizzes.validator import QuestionValidator
 
 class QuestionGenerator(Protocol):
     def generate(
-        self, *, duration_minutes: int, difficulty: str, question_count: int
+        self, *, duration_minutes: int, difficulty: str, question_count: int, mode: str = "mixed"
     ) -> list[GeneratedQuestion]: ...
 
 
@@ -62,17 +62,17 @@ class QuizService:
         )
 
     def generate(
-        self, user_id: UUID, duration_minutes: int, difficulty: str
+        self, user_id: UUID, duration_minutes: int, difficulty: str, mode: str = "mixed"
     ) -> QuizDraft:
         blueprint = self._selector.select(duration_minutes)
         count = blueprint.question_count(duration_minutes)
-        questions = self._validator.validate(
-            self._generator.generate(
-                duration_minutes=duration_minutes,
-                difficulty=difficulty,
-                question_count=count,
-            )
+        raw_questions = self._generator.generate(
+            duration_minutes=duration_minutes,
+            difficulty=difficulty,
+            question_count=count,
+            mode=mode,
         )
+        questions = self._validator.validate(raw_questions)
         return self._repository.create(
             user_id=user_id,
             blueprint_id=blueprint.id,

@@ -11,12 +11,12 @@ class FakeQuizService:
     def __init__(self):
         self.calls = []
 
-    def generate(self, user_id, duration_minutes, difficulty):
-        self.calls.append((user_id, duration_minutes, difficulty))
+    def generate(self, user_id, duration_minutes, difficulty, mode="mixed"):
+        self.calls.append((user_id, duration_minutes, difficulty, mode))
         return QuizDraft(uuid4(), duration_minutes, difficulty, 20)
 
     def options(self):
-        return QuizOptions((15, 45, 60), 10, 90, 2)
+        return QuizOptions((15, 45, 60), 10, 90, 2, ("listening", "reading", "mixed"))
 
 
 def test_student_requests_quiz_without_route_level_duration_rules(client) -> None:
@@ -36,7 +36,7 @@ def test_student_requests_quiz_without_route_level_duration_rules(client) -> Non
 
     assert response.status_code == 201
     assert response.json()["duration_minutes"] == 35
-    assert service.calls == [(student.id, 35, "adaptive")]
+    assert service.calls == [(student.id, 35, "adaptive", "mixed")]
 
 
 def test_student_reads_quiz_policy_options_from_server(client) -> None:
@@ -57,6 +57,7 @@ def test_student_reads_quiz_policy_options_from_server(client) -> None:
         "custom_minimum_minutes": 10,
         "custom_maximum_minutes": 90,
         "max_audio_plays": 2,
+        "modes": ["listening", "reading", "mixed"],
     }
 
 

@@ -9,7 +9,14 @@ from sqlalchemy import select
 
 from english7.api.errors import ApplicationError
 from english7.core.settings import Settings
-from english7.db.models import ReviewStatus, SourceFragment
+from english7.db.models import (
+    Activity,
+    AudioTrack,
+    ReviewStatus,
+    Section,
+    SourceFragment,
+    Unit,
+)
 from english7.db.session import get_session_factory
 from english7.modules.ai.openrouter import (
     OpenRouterEmbedder,
@@ -92,60 +99,121 @@ class GroundedQuestionGenerator:
         return True
 
     def generate(
-        self, *, duration_minutes: int, difficulty: str, question_count: int
+        self, *, duration_minutes: int, difficulty: str, question_count: int, mode: str = "mixed"
     ) -> list[GeneratedQuestion]:
-        import re
         with self._session_factory() as session:
+            # Query listening audio tracks and activities if mode requires audio
+            audio_url: str | None = None
+            audio_title: str | None = None
+            listening_frags: list[SourceFragment] = []
+
+            if mode in ("listening", "mixed"):
+                try:
+                    stmt = (
+                        select(SourceFragment, AudioTrack, Activity, Section, Unit)
+                        .join(Activity, SourceFragment.activity_id == Activity.id)
+                        .join(AudioTrack, AudioTrack.activity_id == Activity.id)
+                        .join(Section, Activity.section_id == Section.id)
+                        .join(Unit, Section.unit_id == Unit.id)
+                        .where(
+                            SourceFragment.review_status == ReviewStatus.VERIFIED.value,
+                            SourceFragment.is_published == True,
+                        )
+                    )
+                    records = session.execute(stmt).all()
+                    preferred = [
+                        r
+                        for r in records
+                        if "skills 2" in r[3].title.lower()
+                        or "listening" in (r[2].instruction or "").lower()
+                    ]
+                    pool = preferred if preferred else records
+                    if pool:
+                        by_track = {}
+                        for f, tr, ac, se, un in pool:
+                            by_track.setdefault((tr.track_number, un.number, un.title), []).append(f)
+                        if by_track:
+                            import random
+                            chosen_track_key = random.choice(list(by_track.keys()))
+                            tr_num, un_num, un_title = chosen_track_key
+                            audio_url = f"/api/v1/media/audio/{tr_num}"
+                            audio_title = f"Unit {un_num}: {un_title} (Track {tr_num})"
+                            listening_frags = by_track[chosen_track_key]
+                except Exception:
+                    pass
+
             all_fragments = session.scalars(
                 select(SourceFragment).where(
                     SourceFragment.review_status == ReviewStatus.VERIFIED.value,
                     SourceFragment.is_published == True,
                 )
             ).all()
-            if not all_fragments:
+            if not all_fragments and not listening_frags:
                 raise ApplicationError(
                     "insufficient_sources",
                     "Not enough verified textbook fragments to generate quiz",
                     503,
                 )
 
-            # Filter to fragments suitable for True/False/Not given questions
-            fragments = [
+            # Filter reading fragments suitable for True/False/Not given questions
+            reading_fragments = [
                 f for f in all_fragments
                 if self._is_suitable_fragment(f.normalized_text)
             ]
-            # Fallback to all fragments if none pass the filter
-            if not fragments:
-                fragments = list(all_fragments)
+            if not reading_fragments:
+                reading_fragments = list(all_fragments) if all_fragments else listening_frags
 
-            questions: list[GeneratedQuestion] = []
+            # Determine how many questions are listening questions
+            if mode == "listening":
+                listening_count = question_count if listening_frags else 0
+            elif mode == "mixed" and listening_frags:
+                listening_count = min(len(listening_frags), max(1, question_count // 2))
+            else:
+                listening_count = 0
 
-            # Build the list of (fragment, clean_text, target_answer)
-            items = []
+            # Build question item specs: (frag, is_listening)
+            question_specs = []
             for i in range(question_count):
-                frag = fragments[i % len(fragments)]
+                if i < listening_count and listening_frags:
+                    frag = listening_frags[i % len(listening_frags)]
+                    question_specs.append((frag, True))
+                else:
+                    frag = reading_fragments[i % len(reading_fragments)]
+                    question_specs.append((frag, False))
+
+            items = []
+            for i, (frag, is_listen) in enumerate(question_specs):
                 clean = self._clean_text(frag.normalized_text)
                 target = self._CORRECT_OPTIONS[i % len(self._CORRECT_OPTIONS)]
-                items.append((frag, clean, target))
+                items.append((frag, clean, target, is_listen))
 
-            # Try one batch AI call for all questions (avoids rate-limit from N calls)
+            # Try one batch AI call for all questions
             ai_results: list[tuple[str, str] | None] = [None] * question_count
             if self._ai_provider is not None:
                 try:
-                    ai_results = self._ai_generate_batch(items)
+                    ai_items = [(f, c, t) for (f, c, t, _) in items]
+                    ai_results = self._ai_generate_batch(ai_items)
                 except Exception:
-                    pass  # full batch failed → per-item fallback below
+                    pass
 
-            for i, (frag, clean, target) in enumerate(items):
+            questions: list[GeneratedQuestion] = []
+            for i, (frag, clean, target, is_listen) in enumerate(items):
                 ai = ai_results[i] if ai_results else None
                 if ai is not None:
                     prompt, correct = ai
+                    if is_listen and audio_title:
+                        prompt = f"[Listening - {audio_title}]\nListen to the audio recording to answer:\n{prompt}"
                 else:
-                    prompt, correct = self._make_fallback(clean, i)
-                answer = {
+                    prompt, correct = self._make_fallback(
+                        clean, i, is_listening=is_listen, audio_title=audio_title
+                    )
+                answer: dict[str, Any] = {
                     "options": list(self._CORRECT_OPTIONS),
                     "correct": correct,
                 }
+                if is_listen and audio_url:
+                    answer["audio_url"] = audio_url
+                    answer["audio_title"] = audio_title
                 questions.append(
                     GeneratedQuestion(
                         prompt=prompt,
@@ -155,7 +223,13 @@ class GroundedQuestionGenerator:
                 )
             return questions
 
-    def _make_fallback(self, clean_text: str, index: int) -> tuple[str, str]:
+    def _make_fallback(
+        self,
+        clean_text: str,
+        index: int,
+        is_listening: bool = False,
+        audio_title: str | None = None,
+    ) -> tuple[str, str]:
         """Deterministic fallback: cycle True/False/Not given, use raw text snippet."""
         correct = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
         statement = clean_text[:120].rstrip()
@@ -164,9 +238,12 @@ class GroundedQuestionGenerator:
             if last_space > 60:
                 statement = statement[:last_space]
             statement += "..."
+        if is_listening and audio_title:
+            prefix = f"[Listening - {audio_title}]\nAccording to the audio recording in the textbook,"
+        else:
+            prefix = "According to the English 7 Global Success textbook,"
         prompt = (
-            f"According to the English 7 Global Success textbook, "
-            f"is the following statement True, False, or Not given?\n\n"
+            f"{prefix} is the following statement True, False, or Not given?\n\n"
             f"\"{statement}\""
         )
         return prompt, correct

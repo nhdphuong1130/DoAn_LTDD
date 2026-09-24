@@ -32,6 +32,8 @@ class QuizDraft:
     duration_minutes: int
     difficulty: str
     question_count: int
+    audio_url: str | None = None
+    audio_title: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,3 +42,4 @@ class QuizOptions:
     custom_minimum_minutes: int
     custom_maximum_minutes: int
     max_audio_plays: int
+    modes: tuple[str, ...] = ("listening", "reading", "mixed")

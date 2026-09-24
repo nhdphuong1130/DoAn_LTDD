@@ -18,6 +18,7 @@ router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 class GenerateQuizRequest(BaseModel):
     duration_minutes: int = Field(gt=0)
     difficulty: str = Field(min_length=1, max_length=30)
+    mode: str = Field(default="mixed", max_length=30)
 
 
 class QuizQuestionItem(BaseModel):
@@ -31,6 +32,8 @@ class QuizResponse(BaseModel):
     duration_minutes: int
     difficulty: str
     question_count: int
+    audio_url: str | None = None
+    audio_title: str | None = None
     questions: list[QuizQuestionItem] = []
 
 
@@ -44,6 +47,7 @@ class QuizOptionsResponse(BaseModel):
     custom_minimum_minutes: int
     custom_maximum_minutes: int
     max_audio_plays: int
+    modes: list[str] = ["listening", "reading", "mixed"]
 
 
 def get_quiz_service(request: Request) -> QuizService:
@@ -66,6 +70,7 @@ def quiz_options(
         custom_minimum_minutes=options.custom_minimum_minutes,
         custom_maximum_minutes=options.custom_maximum_minutes,
         max_audio_plays=options.max_audio_plays,
+        modes=list(options.modes),
     )
 
 
@@ -76,9 +81,11 @@ def generate_quiz(
     service: Annotated[QuizService, Depends(get_quiz_service)],
 ) -> QuizResponse:
     draft = service.generate(
-        user.id, payload.duration_minutes, payload.difficulty
+        user.id, payload.duration_minutes, payload.difficulty, payload.mode
     )
     questions: list[QuizQuestionItem] = []
+    audio_url = draft.audio_url
+    audio_title = draft.audio_title
     try:
         with get_session_factory()() as session:
             db_questions = session.scalars(
@@ -96,6 +103,12 @@ def generate_quiz(
                 )
                 for q in db_questions
             ]
+            if not audio_url:
+                for q in db_questions:
+                    if (q.answer_payload or {}).get("audio_url"):
+                        audio_url = q.answer_payload["audio_url"]
+                        audio_title = q.answer_payload.get("audio_title")
+                        break
     except Exception:
         pass
     return QuizResponse(
@@ -103,6 +116,8 @@ def generate_quiz(
         duration_minutes=draft.duration_minutes,
         difficulty=draft.difficulty,
         question_count=draft.question_count,
+        audio_url=audio_url,
+        audio_title=audio_title,
         questions=questions,
     )
 

@@ -162,7 +162,12 @@ class TutorRefusal implements Exception {
 class QuizSetup {
   final int durationMinutes;
   final String difficulty;
-  const QuizSetup(this.durationMinutes, this.difficulty);
+  final String mode;
+  const QuizSetup(
+    this.durationMinutes,
+    this.difficulty, [
+    this.mode = 'mixed',
+  ]);
 }
 
 class QuizOptions {
@@ -170,12 +175,14 @@ class QuizOptions {
   final int customMinimumMinutes;
   final int customMaximumMinutes;
   final int maxAudioPlays;
+  final List<String> modes;
   const QuizOptions(
     this.presetDurations,
     this.customMinimumMinutes,
     this.customMaximumMinutes,
-    this.maxAudioPlays,
-  );
+    this.maxAudioPlays, [
+    this.modes = const ['listening', 'reading', 'mixed'],
+  ]);
 }
 
 class QuizQuestion {
@@ -194,12 +201,16 @@ class QuizSession {
   final int durationMinutes;
   final String difficulty;
   final List<QuizQuestion> questions;
+  final String? audioUrl;
+  final String? audioTitle;
   const QuizSession(
     this.id,
     this.durationMinutes,
     this.difficulty,
-    this.questions,
-  );
+    this.questions, {
+    this.audioUrl,
+    this.audioTitle,
+  });
 }
 
 class QuizResult {

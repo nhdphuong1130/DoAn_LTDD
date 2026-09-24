@@ -209,4 +209,57 @@ void main() {
     );
     expect(tokens.cleared, isFalse);
   });
+
+  test('loadQuizOptions parses available quiz modes', () async {
+    final transport = ScriptedTransport()
+      ..responses.add(
+        jsonResponse(200, {
+          'preset_durations': [15, 45, 60],
+          'custom_minimum_minutes': 10,
+          'custom_maximum_minutes': 90,
+          'max_audio_plays': 2,
+          'modes': ['listening', 'reading', 'mixed'],
+        }),
+      );
+
+    final options = await buildApi(transport, MemoryTokens()).loadQuizOptions();
+
+    expect(options.presetDurations, [15, 45, 60]);
+    expect(options.modes, ['listening', 'reading', 'mixed']);
+  });
+
+  test('createQuiz submits mode and parses audioUrl and audioTitle', () async {
+    final transport = ScriptedTransport()
+      ..responses.add(
+        jsonResponse(201, {
+          'id': 'quiz-123',
+          'duration_minutes': 15,
+          'difficulty': 'adaptive',
+          'question_count': 1,
+          'audio_url': '/api/v1/media/audio/37',
+          'audio_title': 'Unit 5 Skills 2 (Track 37)',
+          'questions': [
+            {
+              'id': 'q-1',
+              'prompt': 'True or False?',
+              'options': ['True', 'False', 'Not given'],
+            },
+          ],
+        }),
+      );
+
+    final session = await buildApi(transport, MemoryTokens()).createQuiz(
+      const QuizSetup(15, 'adaptive', 'listening'),
+    );
+
+    final payload = jsonDecode(
+      utf8.decode(transport.requests.single.body!),
+    ) as Map<String, dynamic>;
+    expect(payload['duration_minutes'], 15);
+    expect(payload['difficulty'], 'adaptive');
+    expect(payload['mode'], 'listening');
+    expect(session.audioUrl, '/api/v1/media/audio/37');
+    expect(session.audioTitle, 'Unit 5 Skills 2 (Track 37)');
+  });
 }
+

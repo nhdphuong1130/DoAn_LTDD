@@ -139,19 +139,28 @@ class FakeStudentApi implements StudentApi {
     );
   }
 
+  QuizSetup? lastSetup;
+  String? fakeAudioUrl;
+  String? fakeAudioTitle;
+
   @override
-  Future<QuizSession> createQuiz(QuizSetup setup) async => QuizSession(
-    'quiz-1',
-    setup.durationMinutes,
-    setup.difficulty,
-    const [
-      QuizQuestion(
-        'question-1',
-        'Choose a healthy habit',
-        options: ['True', 'False', 'Not given'],
-      ),
-    ],
-  );
+  Future<QuizSession> createQuiz(QuizSetup setup) async {
+    lastSetup = setup;
+    return QuizSession(
+      'quiz-1',
+      setup.durationMinutes,
+      setup.difficulty,
+      const [
+        QuizQuestion(
+          'question-1',
+          'Choose a healthy habit',
+          options: ['True', 'False', 'Not given'],
+        ),
+      ],
+      audioUrl: fakeAudioUrl,
+      audioTitle: fakeAudioTitle,
+    );
+  }
 
   @override
   Future<QuizResult> submitQuiz(

@@ -222,11 +222,16 @@ class ApiStudentApi implements StudentApi {
   @override
   Future<QuizOptions> loadQuizOptions() async {
     final response = await _client.getJson('/api/v1/quizzes/options');
+    final rawModes = response.body['modes'] as List<dynamic>?;
+    final modes = rawModes != null
+        ? rawModes.map((e) => e.toString()).toList(growable: false)
+        : const ['listening', 'reading', 'mixed'];
     return QuizOptions(
       (response.body['preset_durations'] as List<dynamic>).cast<int>(),
       response.body['custom_minimum_minutes'] as int,
       response.body['custom_maximum_minutes'] as int,
       response.body['max_audio_plays'] as int,
+      modes,
     );
   }
 
@@ -301,6 +306,7 @@ class ApiStudentApi implements StudentApi {
     final response = await _client.postJson('/api/v1/quizzes', {
       'duration_minutes': setup.durationMinutes,
       'difficulty': setup.difficulty,
+      'mode': setup.mode,
     });
     final questionsList = (response.body['questions'] as List<dynamic>? ?? const [])
         .map((raw) {
@@ -321,6 +327,8 @@ class ApiStudentApi implements StudentApi {
       response.body['duration_minutes'] as int,
       response.body['difficulty'] as String,
       questionsList,
+      audioUrl: response.body['audio_url'] as String?,
+      audioTitle: response.body['audio_title'] as String?,
     );
   }
 

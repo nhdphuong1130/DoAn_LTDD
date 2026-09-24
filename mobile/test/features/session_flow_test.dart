@@ -61,4 +61,22 @@ void main() {
     expect(api.restoreCalls, 2);
     expect(find.byType(StudentShell), findsOneWidget);
   });
+
+  testWidgets('session error allows logging out to login screen', (
+    tester,
+  ) async {
+    final api = FakeStudentApi()..restoreError = Exception('offline');
+    await tester.pumpWidget(
+      English7App(api: api, imageSelector: FakeImageSelector()),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đăng nhập tài khoản khác'), findsOneWidget);
+    await tester.tap(find.text('Đăng nhập tài khoản khác'));
+    await tester.pumpAndSettle();
+
+    expect(api.logoutCalled, isTrue);
+    expect(find.text('Đăng nhập'), findsOneWidget);
+  });
 }
+

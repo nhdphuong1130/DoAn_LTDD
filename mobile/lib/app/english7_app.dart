@@ -44,7 +44,8 @@ class _English7AppState extends State<English7App> {
             ? _SessionState.unauthenticated
             : _SessionState.authenticated,
       );
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('Session restore failed: $e\n$stack');
       if (!mounted) return;
       setState(() => _sessionState = _SessionState.failed);
     }
@@ -75,16 +76,36 @@ class _English7AppState extends State<English7App> {
     ),
     _SessionState.failed => Scaffold(
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Không thể kiểm tra phiên đăng nhập'),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _restoreSession,
-              child: const Text('Thử lại'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'Không thể kiểm tra phiên đăng nhập',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng hoặc đảm bảo backend đang chạy.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: _restoreSession,
+                child: const Text('Thử lại'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: _logout,
+                child: const Text('Đăng nhập tài khoản khác'),
+              ),
+            ],
+          ),
         ),
       ),
     ),

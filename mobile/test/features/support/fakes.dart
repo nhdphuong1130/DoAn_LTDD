@@ -146,6 +146,11 @@ class FakeStudentApi implements StudentApi {
   @override
   Future<QuizSession> createQuiz(QuizSetup setup) async {
     lastSetup = setup;
+    final hasAudio = setup.mode != 'reading';
+    final resolvedAudioUrl =
+        fakeAudioUrl ?? (hasAudio ? '/api/v1/media/audio/18' : null);
+    final resolvedAudioTitle =
+        fakeAudioTitle ?? (hasAudio ? 'Track 18' : null);
     return QuizSession(
       'quiz-1',
       setup.durationMinutes,
@@ -157,8 +162,8 @@ class FakeStudentApi implements StudentApi {
           options: ['True', 'False', 'Not given'],
         ),
       ],
-      audioUrl: fakeAudioUrl,
-      audioTitle: fakeAudioTitle,
+      audioUrl: resolvedAudioUrl,
+      audioTitle: resolvedAudioTitle,
     );
   }
 

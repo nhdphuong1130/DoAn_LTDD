@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/student_api.dart';
+import '../../services/native_audio_player.dart';
 import '../../widgets/audio_player.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -17,11 +18,13 @@ class _QuizScreenState extends State<QuizScreen> {
   QuizOptions? _options;
   int? _duration;
   String _difficulty = 'adaptive';
+  String _mode = 'mixed';
   QuizSession? _session;
   QuizResult? _result;
   final Map<String, String> _answers = {};
   int _remainingSeconds = 0;
   int _remainingPlays = 0;
+  bool _isPlayingAudio = false;
   Timer? _timer;
   bool _isLoadingOptions = true;
   String? _loadError;
@@ -57,7 +60,43 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    if (_isPlayingAudio) {
+      NativeAudioPlayer.stop();
+    }
     super.dispose();
+  }
+
+  String _resolveAudioUrl(String rawUrl) {
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    const defaultBase = String.fromEnvironment(
+      'API_BASE_URL',
+      defaultValue: 'http://10.0.2.2:8000',
+    );
+    final base = defaultBase.replaceAll(RegExp(r'/+$'), '');
+    final path = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
+    return '$base$path';
+  }
+
+  Future<void> _playQuizAudio() async {
+    if (_session?.audioUrl == null || _remainingPlays <= 0) return;
+    setState(() {
+      _remainingPlays--;
+      _isPlayingAudio = true;
+    });
+    final resolvedUrl = _resolveAudioUrl(_session!.audioUrl!);
+    final success = await NativeAudioPlayer.play(resolvedUrl);
+    if (!success && mounted) {
+      setState(() => _isPlayingAudio = false);
+    }
+  }
+
+  Future<void> _pauseQuizAudio() async {
+    await NativeAudioPlayer.pause();
+    if (mounted) {
+      setState(() => _isPlayingAudio = false);
+    }
   }
 
   Future<void> _start() async {
@@ -65,13 +104,14 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() => _isStarting = true);
     try {
       final session = await widget.api.createQuiz(
-        QuizSetup(_duration!, _difficulty),
+        QuizSetup(_duration!, _difficulty, _mode),
       );
       if (!mounted) return;
       setState(() {
         _session = session;
         _remainingSeconds = session.durationMinutes * 60;
         _remainingPlays = _options!.maxAudioPlays;
+        _isPlayingAudio = false;
         _result = null;
         _answers.clear();
         _isStarting = false;
@@ -95,6 +135,10 @@ class _QuizScreenState extends State<QuizScreen> {
 
   Future<void> _submit() async {
     _timer?.cancel();
+    if (_isPlayingAudio) {
+      await NativeAudioPlayer.stop();
+      _isPlayingAudio = false;
+    }
     final result = await widget.api.submitQuiz(_session!.id, _answers);
     if (mounted) setState(() => _result = result);
   }
@@ -120,11 +164,17 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: () => setState(() {
-                _session = null;
-                _result = null;
-                _answers.clear();
-              }),
+              onPressed: () {
+                if (_isPlayingAudio) {
+                  NativeAudioPlayer.stop();
+                }
+                setState(() {
+                  _session = null;
+                  _result = null;
+                  _isPlayingAudio = false;
+                  _answers.clear();
+                });
+              },
               icon: const Icon(Icons.refresh),
               label: const Text('Làm bài mới'),
             ),
@@ -143,11 +193,16 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          LimitedAudioPlayer(
-            remainingPlays: _remainingPlays,
-            onPlay: () => setState(() => _remainingPlays--),
-          ),
-          const SizedBox(height: 16),
+          if (_session!.audioUrl != null) ...[
+            LimitedAudioPlayer(
+              remainingPlays: _remainingPlays,
+              title: _session!.audioTitle,
+              isPlaying: _isPlayingAudio,
+              onPlay: _playQuizAudio,
+              onPause: _pauseQuizAudio,
+            ),
+            const SizedBox(height: 16),
+          ],
           for (var i = 0; i < _session!.questions.length; i++)
             Card(
               elevation: 2,
@@ -246,6 +301,37 @@ class _QuizScreenState extends State<QuizScreen> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 16),
+        Text(
+          'Hình thức thi',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
+            ChoiceChip(
+              label: const Text('Đề thi Tổng hợp'),
+              selected: _mode == 'mixed',
+              onSelected: (_) => setState(() => _mode = 'mixed'),
+            ),
+            ChoiceChip(
+              label: const Text('Kỹ năng Nghe'),
+              selected: _mode == 'listening',
+              onSelected: (_) => setState(() => _mode = 'listening'),
+            ),
+            ChoiceChip(
+              label: const Text('Đọc hiểu & Ngôn ngữ'),
+              selected: _mode == 'reading',
+              onSelected: (_) => setState(() => _mode = 'reading'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Thời gian làm bài',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           children: [

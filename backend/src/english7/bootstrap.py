@@ -138,7 +138,14 @@ class GroundedQuestionGenerator:
                             tr_num, un_num, un_title = chosen_track_key
                             audio_url = f"/api/v1/media/audio/{tr_num}"
                             audio_title = f"Unit {un_num}: {un_title} (Track {tr_num})"
-                            listening_frags = by_track[chosen_track_key]
+                            chosen_frags = by_track[chosen_track_key]
+                            other_frags = [
+                                r[0]
+                                for r in pool
+                                if r[1].track_number != tr_num
+                                and self._is_suitable_fragment(r[0].normalized_text)
+                            ]
+                            listening_frags = chosen_frags + other_frags
                 except Exception:
                     pass
 
@@ -171,14 +178,21 @@ class GroundedQuestionGenerator:
             else:
                 listening_count = 0
 
+            # Shuffle fragments to ensure diverse questions across textbook units
+            import random
+            shuffled_listening = list(listening_frags)
+            random.shuffle(shuffled_listening)
+            shuffled_reading = list(reading_fragments)
+            random.shuffle(shuffled_reading)
+
             # Build question item specs: (frag, is_listening)
             question_specs = []
             for i in range(question_count):
-                if i < listening_count and listening_frags:
-                    frag = listening_frags[i % len(listening_frags)]
+                if i < listening_count and shuffled_listening:
+                    frag = shuffled_listening[i % len(shuffled_listening)]
                     question_specs.append((frag, True))
                 else:
-                    frag = reading_fragments[i % len(reading_fragments)]
+                    frag = shuffled_reading[i % len(shuffled_reading)]
                     question_specs.append((frag, False))
 
             items = []
@@ -201,8 +215,6 @@ class GroundedQuestionGenerator:
                 ai = ai_results[i] if ai_results else None
                 if ai is not None:
                     prompt, correct = ai
-                    if is_listen and audio_title:
-                        prompt = f"[Listening - {audio_title}]\nListen to the audio recording to answer:\n{prompt}"
                 else:
                     prompt, correct = self._make_fallback(
                         clean, i, is_listening=is_listen, audio_title=audio_title
@@ -230,22 +242,37 @@ class GroundedQuestionGenerator:
         is_listening: bool = False,
         audio_title: str | None = None,
     ) -> tuple[str, str]:
-        """Deterministic fallback: cycle True/False/Not given, use raw text snippet."""
+        """Deterministic fallback: cycle True/False/Not given, use clean text statement."""
+        import re
         correct = self._CORRECT_OPTIONS[index % len(self._CORRECT_OPTIONS)]
-        statement = clean_text[:120].rstrip()
-        if len(clean_text) > 120:
-            last_space = statement.rfind(" ")
-            if last_space > 60:
-                statement = statement[:last_space]
-            statement += "..."
-        if is_listening and audio_title:
-            prefix = f"[Listening - {audio_title}]\nAccording to the audio recording in the textbook,"
+
+        dialogue = [
+            ln.strip()
+            for ln in clean_text.splitlines()
+            if ":" in ln and len(ln.strip()) > 15
+        ]
+        if dialogue:
+            statement = dialogue[index % len(dialogue)]
         else:
-            prefix = "According to the English 7 Global Success textbook,"
-        prompt = (
-            f"{prefix} is the following statement True, False, or Not given?\n\n"
-            f"\"{statement}\""
-        )
+            sentences = [
+                s.strip()
+                for s in re.split(r"(?<=[.!?])\s+", clean_text)
+                if len(s.strip()) > 20 and not s.strip().startswith("http")
+            ]
+            if sentences:
+                statement = sentences[index % len(sentences)]
+            else:
+                statement = clean_text[:120].strip()
+
+        if len(statement) > 120:
+            last_space = statement[:120].rfind(" ")
+            if last_space > 40:
+                statement = statement[:last_space]
+            else:
+                statement = statement[:120]
+            statement += "..."
+
+        prompt = f'"{statement}"'
         return prompt, correct
 
     def _ai_generate_batch(
@@ -260,7 +287,13 @@ class GroundedQuestionGenerator:
         import json as _json
         from urllib.request import Request as _Req, urlopen as _open
 
-        api_key = self._ai_provider._api_key.get_secret_value()
+        api_key = (
+            self._ai_provider._api_key.get_secret_value()
+            if hasattr(self._ai_provider._api_key, "get_secret_value")
+            else str(self._ai_provider._api_key or "")
+        )
+        if not api_key or "replace" in api_key.lower():
+            return [None] * len(items)
         model = self._ai_provider._model
         endpoint = self._ai_provider._endpoint
         timeout = min(self._ai_provider._timeout, 60)
@@ -283,6 +316,7 @@ class GroundedQuestionGenerator:
         system = (
             "You are an English 7 quiz item writer. "
             "For each passage, follow the instruction to write exactly one statement. "
+            "Ensure every statement is completely unique and differs in topic or subject from others. "
             "Return a JSON object with key 'questions' containing an array. "
             "Each array element: {\"id\": <number>, \"statement\": \"...\", \"correct\": \"True|False|Not given\"}. "
             "The 'correct' field MUST match the required_answer for each passage."
@@ -325,11 +359,7 @@ class GroundedQuestionGenerator:
                 if correct not in self._CORRECT_OPTIONS:
                     correct = self._CORRECT_OPTIONS[idx % len(self._CORRECT_OPTIONS)]
                 if statement:
-                    prompt = (
-                        f"According to the English 7 Global Success textbook, "
-                        f"is the following statement True, False, or Not given?\n\n"
-                        f"\"{statement}\""
-                    )
+                    prompt = f'"{statement}"'
                     result_map[idx] = (prompt, correct)
             except (KeyError, ValueError, TypeError):
                 continue

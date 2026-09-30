@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     )
 
     service_name: str = "english7-api"
+    speech_runtime_url: str = 'http://speech-runtime:8010'
+    speech_timeout_seconds: float = 120.0
     api_prefix: str = "/api/v1"
     database_url: SecretStr | None = None
     jwt_secret: SecretStr | None = None
@@ -65,6 +67,14 @@ class Settings(BaseSettings):
     minio_secret_key: SecretStr | None = None
     minio_upload_bucket: str | None = None
     tutor_query_max_characters: int | None = None
+    twilio_account_sid: str = ""
+    twilio_auth_token: SecretStr | None = None
+    twilio_from_phone: str = ""
+    sms_gateway_url: str | None = "http://127.0.0.1:8080"
+    sms_gateway_username: str | None = "sms"
+    sms_gateway_password: SecretStr | None = None
+    clicksend_username: str | None = None
+    clicksend_api_key: SecretStr | None = None
 
     def require_database_url(self) -> str:
         if self.database_url is None:

@@ -1,3 +1,4 @@
+import secrets
 from uuid import UUID
 
 from english7.api.errors import ApplicationError
@@ -39,7 +40,18 @@ class AuthService:
         return self.repository.create(user)
 
     def login(self, email: str, password: str) -> str:
-        user = self.repository.get_by_email(email.strip().lower())
+        clean = email.strip().lower()
+        user = self.repository.get_by_email(clean)
+        if user is None:
+            digits = "".join(c for c in clean if c.isdigit())
+            if digits:
+                if digits.startswith("0"):
+                    digits = f"84{digits[1:]}"
+                elif not digits.startswith("84"):
+                    digits = f"84{digits}"
+                phone_email = f"phone_{digits}@english7.edu.vn"
+                user = self.repository.get_by_email(phone_email)
+
         if (
             user is None
             or not user.is_active
@@ -50,6 +62,63 @@ class AuthService:
                 message="Email or password is incorrect",
                 status_code=401,
             )
+        return self.token_service.issue(user)
+
+    @staticmethod
+    def phone_to_email(phone: str) -> str:
+        clean = "".join(c for c in phone if c.isdigit())
+        if clean.startswith("0"):
+            clean = f"84{clean[1:]}"
+        elif not clean.startswith("84"):
+            clean = f"84{clean}"
+        return f"phone_{clean}@english7.edu.vn"
+
+    def find_phone_user(self, phone_or_email: str) -> AuthUser | None:
+        clean = phone_or_email.strip().lower()
+        user = self.repository.get_by_email(clean)
+        if user is not None:
+            return user
+        return self.repository.get_by_email(self.phone_to_email(clean))
+
+    def register_phone(self, phone: str, password: str) -> str:
+        phone_email = self.phone_to_email(phone)
+        if self.repository.get_by_email(phone_email) is not None:
+            raise ApplicationError(
+                code="phone_already_registered",
+                message="Số điện thoại này đã được đăng ký tài khoản. Vui lòng đăng nhập lại hoặc sử dụng 'Quên mật khẩu'.",
+                status_code=409,
+            )
+        user = AuthUser.new(
+            email=phone_email,
+            password_hash=self.password_hasher.hash(password),
+            role="student",
+        )
+        user = self.repository.create(user)
+        return self.token_service.issue(user)
+
+    def reset_password_by_phone(self, phone_or_email: str, new_password: str) -> None:
+        user = self.find_phone_user(phone_or_email)
+        if user is None:
+            raise ApplicationError(
+                code="phone_not_found",
+                message="Không tìm thấy tài khoản với số điện thoại hoặc email này",
+                status_code=404,
+            )
+        self.repository.update_password_hash(
+            user.id,
+            self.password_hasher.hash(new_password),
+        )
+
+    def login_or_register_phone(self, phone: str) -> str:
+        phone_email = self.phone_to_email(phone)
+        user = self.repository.get_by_email(phone_email)
+        if user is None:
+            user = AuthUser.new(
+                email=phone_email,
+                password_hash=self.password_hasher.hash(secrets.token_urlsafe(16)),
+                role="student",
+            )
+            user = self.repository.create(user)
         return self.token_service.issue(user)
 
     def authenticate_token(self, encoded: str) -> AuthUser:
@@ -142,12 +211,14 @@ class AuthService:
                 message="User was not found",
                 status_code=404,
             )
-        if not self.password_hasher.verify(current_password, user.password_hash):
-            raise ApplicationError(
-                code="current_password_invalid",
-                message="Current password is incorrect",
-                status_code=400,
-            )
+        is_phone_user = user.email.startswith("phone_")
+        if not (is_phone_user and not current_password):
+            if not self.password_hasher.verify(current_password, user.password_hash):
+                raise ApplicationError(
+                    code="current_password_invalid",
+                    message="Current password is incorrect",
+                    status_code=400,
+                )
         if self.password_hasher.verify(new_password, user.password_hash):
             raise ApplicationError(
                 code="password_unchanged",

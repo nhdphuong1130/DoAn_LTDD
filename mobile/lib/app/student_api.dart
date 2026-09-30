@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'learning_api.dart';
 
 enum TutorLanguage { vietnamese, english }
 
@@ -47,7 +48,12 @@ class LessonSummary {
   final String title;
   final String sectionTitle;
   final String id;
-  const LessonSummary(this.unitNumber, this.title, this.sectionTitle, {this.id = ''});
+  const LessonSummary(
+    this.unitNumber,
+    this.title,
+    this.sectionTitle, {
+    this.id = '',
+  });
 }
 
 class LessonFragment {
@@ -163,11 +169,7 @@ class QuizSetup {
   final int durationMinutes;
   final String difficulty;
   final String mode;
-  const QuizSetup(
-    this.durationMinutes,
-    this.difficulty, [
-    this.mode = 'mixed',
-  ]);
+  const QuizSetup(this.durationMinutes, this.difficulty, [this.mode = 'mixed']);
 }
 
 class QuizOptions {
@@ -213,14 +215,58 @@ class QuizSession {
   });
 }
 
+class QuizHistoryItem {
+  final String quizId;
+  final DateTime submittedAt;
+  final int correct;
+  final int total;
+  const QuizHistoryItem(
+    this.quizId,
+    this.submittedAt,
+    this.correct,
+    this.total,
+  );
+}
+
+class StudentProgress {
+  final int completedQuizzes;
+  final int correct;
+  final int total;
+  final List<QuizHistoryItem> history;
+  const StudentProgress(
+    this.completedQuizzes,
+    this.correct,
+    this.total,
+    this.history,
+  );
+}
+
 class QuizResult {
   final int correct;
   final int total;
   const QuizResult(this.correct, this.total);
 }
 
-abstract interface class StudentApi {
+abstract interface class StudentApi implements LearningApi {
+  Future<StudentProgress> loadProgress();
   Future<void> login(String email, String password);
+  Future<void> sendOtp(
+    String phone, {
+    String channel = 'sms',
+    String purpose = 'login',
+  });
+  Future<void> verifyOtp(String phone, String otp);
+  Future<void> registerPhone({
+    required String phone,
+    required String otp,
+    required String password,
+  });
+  Future<void> resetPassword({
+    required String phone,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  });
   Future<StudentProfile?> restoreSession();
   Future<StudentProfile> loadProfile();
   Future<StudentProfile> updateProfile(ProfileUpdate update);

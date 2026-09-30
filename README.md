@@ -1,5 +1,35 @@
 # English 7 Grounded Learning Platform
 
+## Chạy lại ứng dụng trên máy đã cài đặt
+
+Tab **Tiến độ** tổng hợp các bài kiểm tra đã nộp: số bài, tỷ lệ câu đúng và lịch sử
+kèm thời điểm nộp. Dữ liệu lưu theo tài khoản trên backend và tải lại mỗi khi mở tab;
+cũng có thể kéo xuống hoặc bấm làm mới. Bài chưa nộp không được tính.
+Các bài đã nộp bằng phiên bản cũ (chưa lưu kết quả) không thể khôi phục lịch sử điểm.
+
+Mở Android emulator trong Android Studio → Device Manager, sau đó chạy tại thư mục repo:
+
+```bash
+make run
+```
+
+Lệnh này bật API, SQL Server, Neo4j và MinIO, chờ backend healthy rồi mở Flutter trên
+emulator đang kết nối. Cần Docker Compose hỗ trợ `up --wait`, Flutter và Python 3
+trong PATH (script cũng tìm Flutter tại `$HOME/.local/opt/flutter/bin`).
+Giữ terminal đang chạy; nhấn `q` để thoát Flutter, `make down` để dừng backend.
+Trong Android Studio có thể chọn cấu hình **Run App (Android)** thay vì **Mobile App (Flutter)**.
+Nếu dùng cấu hình Flutter trực tiếp, chạy `make up` trước rồi bấm **Thử lại** trên app.
+
+`make up` chỉ bật backend cơ bản. Khi cần xử lý ảnh/OCR, chạy `make up-full`;
+lần đầu phải tải Torch và các thư viện AI lớn, cần mạng ổn định và có thể mất nhiều thời gian.
+Chức năng ảnh/OCR cần worker chạy; `make run` không tự bật worker.
+`docker compose up -d` vẫn bật toàn bộ dịch vụ, bao gồm worker.
+Timeout tải thư viện vision là 300 giây; nếu mạng ngắt hẳn, build vẫn có thể thất bại.
+
+Kiểm tra script khởi động bằng `make test-launcher`. Có thể chọn thiết bị cụ thể với
+`make run DEVICE=emulator-5556`; với điện thoại thật, đặt `API_BASE_URL` thành địa chỉ LAN
+của máy chạy backend. Máy cài mới vẫn cần làm các bước cấu hình và nạp dữ liệu bên dưới.
+
 Nền tảng học tiếng Anh lớp 7 có gia sư AI sư phạm chuẩn mực, được tiếp đất (grounded) trực tiếp vào nội dung sách giáo khoa *Tiếng Anh 7 – Global Success* (Tập 1 và Tập 2).
 
 Hệ thống này cho phép:
@@ -132,14 +162,22 @@ flutter run
 
 | Lệnh | Ý nghĩa |
 |---|---|
-| `make up` | Khởi động toàn bộ container dịch vụ ở chế độ chạy nền |
+| `make run` | Bật backend, chờ healthy và mở app trên emulator |
+| `make up` | Bật backend cơ bản ở chế độ chạy nền, chờ healthy |
+| `make up-full` | Bật toàn bộ dịch vụ, bao gồm worker OCR |
+| `make speech-setup` | Cài runtime giọng nói và tải mô hình miễn phí một lần |
+| `make speech-up` | Bật VieNeu-TTS và nhận dạng giọng nói CPU |
+| `make speech-down` | Dừng riêng dịch vụ giọng nói |
+| `make seed-flashcards` | Nạp từ SGK có trích dẫn đã kiểm duyệt, không tạo trùng |
 | `make down` | Dừng và dọn dẹp các container |
 | `make ps` | Liệt kê trạng thái các container đang chạy |
 | `make logs` | Xem live log từ tất cả các container |
 | `make restart` | Khởi động lại toàn bộ dịch vụ |
 | `make test` | Chạy toàn bộ kiểm thử backend (`pytest`) và mobile (`flutter test`) |
-| `make test-backend` | Chạy 163 unit test backend |
-| `make test-mobile` | Chạy 33 unit và widget test mobile |
+| `make test-backend` | Chạy unit/API test backend |
+| `make test-mobile` | Chạy unit và widget test mobile |
+| `make test-speech` | Kiểm thử runtime âm thanh, không cần tải mô hình |
+| `make test-learning-live` | Kiểm tra lưu/đọc trên SQL Server và rollback dữ liệu kiểm thử |
 | `make analyze` | Chạy phân tích cú pháp tĩnh Flutter (yêu cầu 0 lỗi, 0 cảnh báo) |
 | `make seed` | Nạp dữ liệu SGK và lập chỉ mục đồ thị tri thức |
 | `make backup-db` | Sao lưu CSDL SQL Server ra thư mục `backups/` |
@@ -147,6 +185,36 @@ flutter run
 | `make clean` | Dọn dẹp các file cache `__pycache__`, `.pytest_cache`, `build` |
 
 ---
+
+## Flashcard và luyện nói
+
+Trong app, mở tab **Luyện tập** → chọn **Flashcard** hoặc **Luyện nói**.
+Học sinh có thể dùng bộ SGK chỉ đọc hoặc tạo bộ cá nhân riêng tư, thêm/sửa/xóa từ,
+sao chép từ SGK, đánh dấu từ khó và ôn theo lịch. Nhập từ tiếng Anh trước khi xem
+đáp án; câu trả lời sai không được tăng mức ghi nhớ. Tab **Tiến độ** hiển thị số
+thẻ đã ôn, thẻ đến hạn và lịch sử luyện nói bên cạnh kết quả kiểm tra.
+
+`make up` và `make run` tự chạy migration, sau đó nạp những từ có bằng chứng trong
+đoạn SGK đã kiểm duyệt và xuất bản. Không sinh số trang giả; bộ từ có thể chưa đủ
+12 Unit nếu dữ liệu nguồn chưa đủ điều kiện. Dữ liệu cá nhân cũ được giữ nguyên.
+
+Luyện nói dùng dịch vụ CPU riêng, không yêu cầu API trả phí:
+
+```bash
+make speech-setup   # lần đầu: cài thư viện và tải mô hình, cần Internet
+make speech-up      # bật dịch vụ giọng nói
+make run            # mở app trên emulator đã bật
+```
+
+Học sinh chọn giọng phản hồi tiếng Việt, thu tối đa 15 giây, nghe lại rồi chủ động
+gửi. Hệ thống trả **bản chép lời và mức khớp từ**, không phải điểm phát âm âm vị.
+VieNeu đọc phản hồi tiếng Việt; không dùng giọng này làm mẫu phát âm tiếng Anh.
+Chỉ hiện audio mẫu tiếng Anh khi có nguồn đã kiểm duyệt. Bản thu không được lưu
+dài hạn; lịch sử lưu câu mẫu, bản chép lời và nhận xét. Dịch vụ giọng nói tắt thì
+flashcard và các chức năng học khác vẫn dùng được.
+
+`make down` dừng cả các container giọng nói nếu đang bật, không xóa volume dữ liệu
+hay model cache. Chi tiết cài đặt và giới hạn: [speech runtime](docs/speech-runtime.md).
 
 ## Tài Khoản Mẫu Đăng Nhập Mặc Định
 

@@ -515,3 +515,8 @@ class AuditEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(nullable=False)
     event_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+# Register feature-owned models in the shared metadata for migrations/tests.
+from english7.modules.flashcards import models as _flashcard_models  # noqa: E402,F401
+from english7.modules.speaking import models as _speaking_models  # noqa: E402,F401

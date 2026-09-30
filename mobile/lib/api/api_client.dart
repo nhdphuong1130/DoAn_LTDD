@@ -43,6 +43,61 @@ class ApiClient {
     return _requestJson('PATCH', path, payload);
   }
 
+  Future<ApiResponse<Map<String, Object?>>> putJson(
+    String path,
+    Map<String, Object?> payload,
+  ) => _requestJson('PUT', path, payload);
+
+  Future<void> delete(String path) async {
+    final token = await _tokens.read();
+    final response = await _transport.send(
+      TransportRequest('DELETE', _config.resolve(path), {
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      }, null),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decodeResponse(response);
+    }
+  }
+
+  Future<Uint8List> audioBytes(
+    String path, {
+    Map<String, Object?>? payload,
+  }) async {
+    final uri = Uri.parse(path);
+    if (uri.hasAuthority && uri.origin != _config.apiBaseUrl.origin) {
+      throw const ApiException(
+        code: 'invalid_audio_origin',
+        message: 'Audio must come from the textbook server',
+        statusCode: 400,
+      );
+    }
+    final requestPath = uri.hasAuthority
+        ? '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}'
+        : path;
+    final token = await _tokens.read();
+    final response = await _transport.send(
+      TransportRequest(
+        payload == null ? 'GET' : 'POST',
+        _config.resolve(requestPath),
+        {
+          'Accept': 'audio/wav, audio/mpeg',
+          if (payload != null) 'Content-Type': 'application/json',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
+        },
+        payload == null
+            ? null
+            : Uint8List.fromList(utf8.encode(jsonEncode(payload))),
+      ),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decodeResponse(response);
+    }
+    return response.body;
+  }
+
   Future<void> postNoContent(String path, Map<String, Object?> payload) async {
     final token = await _tokens.read();
     final response = await _transport.send(

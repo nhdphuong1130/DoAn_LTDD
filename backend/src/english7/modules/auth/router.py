@@ -13,6 +13,7 @@ from english7.db.session import get_session_factory
 from english7.modules.auth.domain import AuthUser, ProfileGender
 from english7.modules.auth.repository import SQLAlchemyAuthRepository
 from english7.modules.auth.service import AuthService
+from english7.modules.auth.sms_service import SmsOtpService, get_sms_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer = HTTPBearer(auto_error=False)
@@ -21,7 +22,7 @@ bearer = HTTPBearer(auto_error=False)
 class CredentialsRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    email: EmailStr
+    email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=8, max_length=128)
 
 
@@ -62,7 +63,7 @@ class ProfileUpdateRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    current_password: str = Field(min_length=8, max_length=128)
+    current_password: str = Field(default="", max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
 
@@ -72,6 +73,52 @@ class TokenResponse(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class SendOtpRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str = Field(min_length=9, max_length=20)
+    channel: str = Field(default="sms", pattern="^(sms|voice)$")
+    purpose: str = Field(default="any", pattern="^(login|register|reset_password|any)$")
+
+
+class SendOtpResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = "success"
+    message: str
+
+
+class VerifyOtpRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str = Field(min_length=9, max_length=20)
+    otp: str = Field(min_length=4, max_length=10)
+
+
+class RegisterPhoneRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str = Field(min_length=9, max_length=20)
+    otp: str = Field(min_length=4, max_length=10)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str = Field(min_length=9, max_length=20)
+    otp: str = Field(min_length=4, max_length=10)
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
+
+
+class SimpleMessageResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str = "success"
+    message: str
 
 
 @lru_cache
@@ -125,6 +172,107 @@ def login(
     service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
     return TokenResponse(access_token=service.login(payload.email, payload.password))
+
+
+@router.post("/otp/send", response_model=SendOtpResponse)
+def send_otp(
+    payload: SendOtpRequest,
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
+) -> SendOtpResponse:
+    target_phone = payload.phone.strip()
+    if payload.purpose == "register":
+        existing = auth_service.find_phone_user(payload.phone)
+        if existing is not None:
+            raise ApplicationError(
+                code="phone_already_registered",
+                message="Số điện thoại này đã được đăng ký tài khoản. Vui lòng đăng nhập lại hoặc chọn Quên mật khẩu.",
+                status_code=409,
+            )
+    elif payload.purpose == "reset_password":
+        existing = auth_service.find_phone_user(payload.phone)
+        if existing is None:
+            raise ApplicationError(
+                code="phone_not_found",
+                message="Số điện thoại hoặc email này chưa được đăng ký trong hệ thống.",
+                status_code=404,
+            )
+        if existing.email.startswith("phone_"):
+            digits = "".join(c for c in existing.email.split("@")[0] if c.isdigit())
+            target_phone = f"+{digits}"
+
+    message = sms_service.send_otp(target_phone, channel=payload.channel)
+    return SendOtpResponse(status="success", message=message)
+
+
+@router.post("/otp/verify", response_model=TokenResponse)
+def verify_otp(
+    payload: VerifyOtpRequest,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
+) -> TokenResponse:
+    if not sms_service.verify_otp(payload.phone, payload.otp):
+        raise ApplicationError(
+            code="invalid_otp",
+            message="Mã OTP không chính xác hoặc đã hết hạn",
+            status_code=400,
+        )
+    token = service.login_or_register_phone(payload.phone)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/register-phone", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+def register_phone(
+    payload: RegisterPhoneRequest,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
+) -> TokenResponse:
+    if not sms_service.verify_otp(payload.phone, payload.otp):
+        raise ApplicationError(
+            code="invalid_otp",
+            message="Mã OTP không chính xác hoặc đã hết hạn",
+            status_code=400,
+        )
+    existing = service.find_phone_user(payload.phone)
+    if existing is not None:
+        raise ApplicationError(
+            code="phone_already_registered",
+            message="Số điện thoại này đã được đăng ký tài khoản. Vui lòng đăng nhập lại hoặc chọn Quên mật khẩu.",
+            status_code=409,
+        )
+    token = service.register_phone(payload.phone, payload.password)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/reset-password", response_model=SimpleMessageResponse)
+def reset_password(
+    payload: ResetPasswordRequest,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
+) -> SimpleMessageResponse:
+    if payload.new_password != payload.confirm_password:
+        raise ApplicationError(
+            code="password_confirmation_mismatch",
+            message="Mật khẩu xác nhận không khớp",
+            status_code=422,
+        )
+    target_phone = payload.phone.strip()
+    existing = service.find_phone_user(payload.phone)
+    if existing is not None and existing.email.startswith("phone_"):
+        digits = "".join(c for c in existing.email.split("@")[0] if c.isdigit())
+        target_phone = f"+{digits}"
+
+    if not sms_service.verify_otp(target_phone, payload.otp):
+        raise ApplicationError(
+            code="invalid_otp",
+            message="Mã OTP không chính xác hoặc đã hết hạn",
+            status_code=400,
+        )
+    service.reset_password_by_phone(payload.phone, payload.new_password)
+    return SimpleMessageResponse(
+        status="success",
+        message="Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.",
+    )
 
 
 @router.get("/me", response_model=UserResponse)

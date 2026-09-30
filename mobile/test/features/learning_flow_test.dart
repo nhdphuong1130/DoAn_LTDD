@@ -1,0 +1,340 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:english7_mobile/app/learning_api.dart';
+import 'package:english7_mobile/api/api_error.dart';
+import 'package:english7_mobile/features/flashcards/learning_screen.dart';
+import 'package:english7_mobile/features/flashcards/review_screen.dart';
+import 'package:english7_mobile/features/speaking/speaking_screen.dart';
+import 'package:english7_mobile/services/speech_recorder.dart';
+
+class FakeLearningApi implements LearningApi {
+  Object? submitError;
+  bool voicesAvailable = true;
+  Completer<Uint8List>? preview;
+  @override
+  Future<Uint8List> previewVoice(String id) => preview!.future;
+  final requests = <String>[];
+  final reviews = <({String requestId, String answer, String rating})>[];
+  static const card = Flashcard(
+    id: 'card',
+    deckId: 'deck',
+    word: 'hobby',
+    meaning: 'sở thích',
+  );
+  @override
+  Future<List<Flashcard>> loadCards(String deckId) async => [card];
+  @override
+  Future<List<Flashcard>> loadReviewCards(String deckId) async => [card];
+  @override
+  Future<FlashcardReviewResult> reviewCard(
+    String id, {
+    required String requestId,
+    required String answer,
+    required String rating,
+  }) async {
+    reviews.add((requestId: requestId, answer: answer, rating: rating));
+    if (reviews.length == 1) throw Exception('Mất kết nối');
+    return FlashcardReviewResult(
+      correct: false,
+      meaning: 'sở thích',
+      dueAt: DateTime.utc(2026, 9, 26),
+    );
+  }
+
+  @override
+  Future<List<FlashcardDeck>> loadDecks() async => [
+    const FlashcardDeck(
+      id: 'deck',
+      name: 'Unit 1',
+      kind: 'textbook',
+      cardCount: 1,
+    ),
+  ];
+  @override
+  Future<SpeakingVoices> loadVoices() async => SpeakingVoices(
+    items: const [SpeakingVoice(id: 'voice', name: 'Giọng mẫu')],
+    selectedVoice: 'voice',
+    available: voicesAvailable,
+  );
+  @override
+  Future<SpeakingResult> submitSpeaking({
+    required String requestId,
+    required String cardId,
+    required String voiceId,
+    required Uint8List audio,
+  }) async {
+    requests.add(requestId);
+    if (submitError != null) throw submitError!;
+    if (requests.length == 1) throw Exception('Mất kết nối');
+    return SpeakingResult.fromJson({
+      'id': 'attempt',
+      'card_id': cardId,
+      'prompt': 'hobby',
+      'transcript': 'hobby',
+      'match_percent': 100,
+      'feedback': 'Đã khớp từ mẫu.',
+      'source_label': '[Unit 1, Page 8]',
+      'created_at': '2026-09-25T00:00:00Z',
+      'missing_words': [],
+      'extra_words': [],
+    });
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class FakeRecorder implements SpeechRecorder {
+  int plays = 0;
+  final bool denied;
+  FakeRecorder({this.denied = false});
+  @override
+  Future<void> start() async {
+    if (denied) {
+      throw const SpeechRecordingException('Chưa có quyền microphone.');
+    }
+  }
+
+  @override
+  Future<Uint8List> stop() async => Uint8List.fromList([1, 2, 3]);
+  @override
+  Future<void> play(Uint8List bytes) async {
+    plays++;
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
+void main() {
+  testWidgets('silence error asks learner to record again', (tester) async {
+    final api = FakeLearningApi()
+      ..submitError = const ApiException(
+        code: 'no_speech',
+        message: 'No speech',
+        statusCode: 422,
+      );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SpeakingScreen(
+          api: api,
+          card: FakeLearningApi.card,
+          recorder: FakeRecorder(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thu âm'));
+    await tester.pump();
+    await tester.tap(find.text('Dừng thu'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Gửi bản thu'));
+    await tester.tap(find.text('Gửi bản thu'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Chưa nghe rõ bản thu. Em hãy chọn Thu lại và nói rõ trong 15 giây.',
+      ),
+      findsOneWidget,
+    );
+  });
+  testWidgets('blank recall can reveal and record not remembered', (
+    tester,
+  ) async {
+    final api = FakeLearningApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReviewScreen(
+          api: api,
+          deck: const FlashcardDeck(
+            id: 'deck',
+            name: 'My words',
+            kind: 'personal',
+            cardCount: 1,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xem đáp án'));
+    await tester.pumpAndSettle();
+    expect(find.text('hobby'), findsOneWidget);
+    await tester.tap(find.text('Chưa nhớ'));
+    await tester.pumpAndSettle();
+    expect(api.reviews.single.answer, '');
+    expect(api.reviews.single.rating, 'again');
+  });
+  testWidgets('offline voice service can be retried in place', (tester) async {
+    final api = FakeLearningApi()..voicesAvailable = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SpeakingScreen(
+          api: api,
+          card: FakeLearningApi.card,
+          recorder: FakeRecorder(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('chưa sẵn sàng'), findsOneWidget);
+    api.voicesAvailable = true;
+    await tester.tap(find.text('Tải lại giọng đọc'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('chưa sẵn sàng'), findsNothing);
+  });
+  testWidgets('late audio response cannot play after leaving screen', (
+    tester,
+  ) async {
+    final api = FakeLearningApi()..preview = Completer<Uint8List>();
+    final recorder = FakeRecorder();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SpeakingScreen(
+          api: api,
+          card: FakeLearningApi.card,
+          recorder: recorder,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nghe thử giọng'));
+    await tester.pump();
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    api.preview!.complete(Uint8List.fromList([1, 2]));
+    await tester.pumpAndSettle();
+    expect(recorder.plays, 0);
+  });
+  testWidgets('recall answer is locked before rating and retry is idempotent', (
+    tester,
+  ) async {
+    final api = FakeLearningApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReviewScreen(
+          api: api,
+          deck: const FlashcardDeck(
+            id: 'deck',
+            name: 'Unit 1',
+            kind: 'textbook',
+            cardCount: 1,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('hobby'), findsNothing);
+    expect(find.text('Đã nhớ'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'hobbi');
+    await tester.tap(find.text('Xem đáp án'));
+    await tester.pumpAndSettle();
+    expect(api.reviews, isEmpty);
+    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+    await tester.tap(find.text('Đã nhớ'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.widgetWithText(OutlinedButton, 'Còn khó'),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.text('Đã nhớ'));
+    await tester.pumpAndSettle();
+    expect(api.reviews.length, 2);
+    expect(api.reviews.first, api.reviews.last);
+    expect(api.reviews.first.answer, 'hobbi');
+    expect(find.textContaining('Chưa đúng'), findsOneWidget);
+  });
+  testWidgets('published deck offers copy but no edit move or delete', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DeckScreen(
+          api: FakeLearningApi(),
+          deck: const FlashcardDeck(
+            id: 'deck',
+            name: 'Unit 1',
+            kind: 'textbook',
+            cardCount: 1,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    expect(find.text('Lưu vào bộ cá nhân'), findsOneWidget);
+    expect(find.text('Sửa từ'), findsNothing);
+    expect(find.text('Xóa từ'), findsNothing);
+    expect(find.text('Chuyển bộ'), findsNothing);
+  });
+  testWidgets('permission denial explains recovery without sending audio', (
+    tester,
+  ) async {
+    final api = FakeLearningApi();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SpeakingScreen(
+          api: api,
+          card: FakeLearningApi.card,
+          recorder: FakeRecorder(denied: true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Thu âm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chưa có quyền microphone.'), findsOneWidget);
+    expect(find.text('Gửi bản thu'), findsNothing);
+    expect(api.requests, isEmpty);
+  });
+  testWidgets('learning entry shows available decks and two learning modes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: LearningScreen(api: FakeLearningApi())),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Unit 1'), findsOneWidget);
+    expect(find.text('Luyện nói'), findsOneWidget);
+  });
+  testWidgets(
+    'recording never auto submits and retry retains request identity',
+    (tester) async {
+      final api = FakeLearningApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SpeakingScreen(
+            api: api,
+            card: Flashcard.fromJson({
+              'id': 'card',
+              'deck_id': 'deck',
+              'word': 'hobby',
+              'meaning': 'sở thích',
+            }),
+            recorder: FakeRecorder(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Thu âm'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 16));
+      await tester.pumpAndSettle();
+      expect(api.requests, isEmpty);
+      await tester.tap(find.text('Gửi bản thu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gửi bản thu'));
+      await tester.pumpAndSettle();
+      expect(api.requests.length, 2);
+      expect(api.requests.first, api.requests.last);
+      expect(find.textContaining('100%'), findsOneWidget);
+      expect(find.textContaining('không phải điểm phát âm'), findsOneWidget);
+    },
+  );
+}

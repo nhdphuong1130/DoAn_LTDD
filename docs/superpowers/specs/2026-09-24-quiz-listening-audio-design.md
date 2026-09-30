@@ -1,6 +1,4 @@
 <!--
-SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
-SPDX-License-Identifier: Apache-2.0
 -->
 
 # Quiz Listening Audio Integration Design

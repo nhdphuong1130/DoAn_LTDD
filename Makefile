@@ -1,8 +1,6 @@
-# SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
-# SPDX-License-Identifier: Apache-2.0
-
 -include .env
 COMPOSE := docker compose -f docker-compose.yml
+SPEECH_COMPOSE := $(COMPOSE) -f compose.speech.yml
 DB_NAME := english7
 DB_USER := sa
 DB_PASSWORD ?= $(if $(SQLSERVER_SA_PASSWORD),$(SQLSERVER_SA_PASSWORD),$(if $(MSSQL_SA_PASSWORD),$(MSSQL_SA_PASSWORD),English7DefaultPass!))
@@ -15,17 +13,22 @@ SQLCMD := /opt/mssql-tools18/bin/sqlcmd -S localhost -U $(DB_USER) -P "$(DB_PASS
 UV := $(shell which uv 2>/dev/null || echo $(HOME)/.local/bin/uv)
 FLUTTER := $(shell which flutter 2>/dev/null || echo $(HOME)/.local/opt/flutter/bin/flutter)
 
-.PHONY: help up down ps logs restart backup-db restore test test-backend test-mobile analyze seed clean
+.PHONY: help run up up-full down ps logs restart backup-db restore test test-launcher test-backend test-mobile analyze seed clean migrate seed-flashcards speech-setup speech-up speech-down test-speech test-learning-live
 
 help:
 	@echo "English 7 Grounded Learning Platform - Lệnh quản trị & phát triển"
 	@echo ""
 	@echo "Docker & Dịch vụ:"
-	@echo "  make up            Khởi động toàn bộ container (SQL Server, Neo4j, MinIO, API, Worker)"
+	@echo "  make run           Khởi động backend, chờ sẵn sàng và mở app trên Android emulator"
+	@echo "  make up            Khởi động backend cơ bản, không tải worker OCR"
+	@echo "  make up-full       Khởi động cả worker OCR (lần đầu tải thư viện AI lớn)"
 	@echo "  make down          Dừng cụm container"
 	@echo "  make ps            Xem trạng thái các container"
 	@echo "  make logs          Xem live logs của cụm container"
 	@echo "  make restart       Khởi động lại toàn bộ dịch vụ"
+	@echo "  make speech-setup  Cài runtime giọng nói và tải mô hình miễn phí (lần đầu)"
+	@echo "  make speech-up     Bật runtime giọng nói riêng, không tải worker OCR"
+	@echo "  make speech-down   Dừng riêng runtime giọng nói"
 	@echo ""
 	@echo "Cơ sở dữ liệu (Backups & Restore):"
 	@echo "  make backup-db     Sao lưu toàn bộ SQL Server thành file .bak và .sql trong backups/"
@@ -36,12 +39,21 @@ help:
 	@echo "  make test-backend  Chạy bộ kiểm thử backend pytest"
 	@echo "  make test-mobile   Chạy bộ kiểm thử mobile Flutter test"
 	@echo "  make analyze       Chạy phân tích tĩnh Flutter analyze"
+	@echo "  make test-speech   Kiểm thử runtime giọng nói (cần môi trường speech)"
+	@echo "  make test-learning-live  Kiểm tra SQL Server, tự rollback dữ liệu kiểm thử"
 	@echo ""
 	@echo "Dữ liệu tri thức:"
 	@echo "  make seed          Nạp dữ liệu SGK và build Knowledge Graph trong Neo4j"
 	@echo "  make clean         Xóa bỏ cache và file build tạm"
 
 up:
+	bash scripts/run_app.sh --backend-only
+
+run:
+	bash scripts/run_app.sh $(if $(DEVICE),$(DEVICE),android)
+
+up-full:
+	bash scripts/run_app.sh --backend-only
 	$(COMPOSE) up -d
 
 down:
@@ -83,7 +95,10 @@ restore:
 	esac
 	@echo "Khôi phục CSDL thành công từ $(FILE)"
 
-test: test-backend test-mobile
+test: test-launcher test-backend test-mobile
+
+test-launcher:
+	python3 scripts/test_run_app.py
 
 test-backend:
 	cd backend && $(UV) run pytest tests --ignore=tests/integration -q
@@ -93,6 +108,28 @@ test-mobile:
 
 analyze:
 	cd mobile && $(FLUTTER) analyze
+
+migrate:
+	$(COMPOSE) exec -T api alembic upgrade head
+
+seed-flashcards:
+	$(COMPOSE) exec -T api python -m english7.modules.flashcards.seed
+
+speech-setup:
+	bash scripts/setup_speech.sh
+
+speech-up: up
+	$(SPEECH_COMPOSE) up -d --build --wait --wait-timeout 240 speech-runtime
+
+speech-down:
+	$(SPEECH_COMPOSE) stop speech-runtime
+
+test-speech:
+	@test -x speech/.venv/bin/python || (echo "Chạy bash scripts/setup_speech.sh --deps-only trước."; exit 1)
+	speech/.venv/bin/python -m pytest speech -q
+
+test-learning-live:
+	$(COMPOSE) exec -T api python -c "import sys; scope={}; exec(compile(sys.stdin.read(), 'test_learning_sqlserver.py', 'exec'),scope); scope['test_learning_transactions_on_live_database'](); print('Live SQL learning smoke passed; test records rolled back')" < backend/tests/integration/test_learning_sqlserver.py
 
 seed:
 	cd backend && $(UV) run python -m english7.cli seed

@@ -1,4 +1,5 @@
 import 'package:english7_mobile/app/english7_app.dart';
+import 'package:english7_mobile/app/student_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -124,5 +125,36 @@ void main() {
 
     expect(api.logoutCalled, isTrue);
     expect(find.byKey(const Key('email-field')), findsOneWidget);
+  });
+
+  testWidgets('phone user displays phone number and avoids overflow on narrow screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final phoneProfile = const StudentProfile(
+      id: 'phone-user-1',
+      email: 'phone_84374423251@english7.edu.vn',
+      role: 'student',
+    );
+    final api = FakeStudentApi()
+      ..profile = phoneProfile
+      ..restoredProfile = phoneProfile;
+
+    await tester.pumpWidget(
+      English7App(api: api, imageSelector: FakeImageSelector()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cá nhân'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0374 423 251'), findsOneWidget);
+    expect(find.text('Xác thực OTP (SMS / Cuộc gọi)'), findsOneWidget);
+    expect(find.text('Thiết lập mật khẩu'), findsOneWidget);
+    expect(find.byKey(const Key('current-password-field')), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }

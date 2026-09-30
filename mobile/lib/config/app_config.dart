@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class ConfigurationException implements Exception {
   final String message;
   const ConfigurationException(this.message);
@@ -62,7 +60,7 @@ class AppConfig {
     final pollInterval = const String.fromEnvironment('IMAGE_POLL_INTERVAL_MS');
     final pollAttempts = const String.fromEnvironment('IMAGE_POLL_MAX_ATTEMPTS');
 
-    final defaultBaseUrl = kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+    final defaultBaseUrl = 'http://127.0.0.1:8000';
 
     return AppConfig.fromEnvironment({
       'API_BASE_URL': baseUrl.isNotEmpty ? baseUrl : defaultBaseUrl,

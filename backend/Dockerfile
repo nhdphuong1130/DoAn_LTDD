@@ -27,4 +27,4 @@ CMD ["uvicorn", "english7.main:app", "--host", "0.0.0.0", "--port", "8000"]
 FROM base AS runtime
 
 FROM base AS vision
-RUN pip install --no-cache-dir ".[vision]"
+RUN pip install --no-cache-dir --timeout 300 ".[vision]"

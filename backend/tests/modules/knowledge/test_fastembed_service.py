@@ -1,37 +1,78 @@
-import math
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 import pytest
-from english7.modules.knowledge.fastembed_service import FastEmbedService
+
+from english7.modules.knowledge import fastembed_service
 
 
-def test_fastembed_service_generates_384_dimensions():
-    service = FastEmbedService()
-    vector = service.embed("Hello world, this is English 7 textbook.")
-    assert isinstance(vector, list)
-    assert len(vector) == 384
-    assert all(isinstance(x, float) for x in vector)
+@pytest.fixture
+def boundary(monkeypatch):
+    created, inputs = [], []
+
+    class FakeEmbedding:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
+
+        def embed(self, texts):
+            inputs.append(list(texts))
+            return [[1, 2.5] for _ in texts]
+
+    monkeypatch.setattr(fastembed_service, 'TextEmbedding', FakeEmbedding)
+    return created, inputs
 
 
-def test_fastembed_service_batch_embedding():
-    service = FastEmbedService()
-    texts = ["Present simple tense", "Renewable energy sources"]
-    vectors = service.embed_batch(texts)
-    assert len(vectors) == 2
-    assert len(vectors[0]) == 384
-    assert len(vectors[1]) == 384
+def test_constructor_and_empty_batch_do_not_load_model(boundary):
+    created, inputs = boundary
+    service = fastembed_service.FastEmbedService()
+    assert created == []
+    assert service.embed_batch([]) == []
+    assert created == inputs == []
 
 
-def test_fastembed_semantic_similarity():
-    service = FastEmbedService()
-    v1 = service.embed("traffic lights and road signs")
-    v2 = service.embed("traffic rules and vehicles on the road")
-    v3 = service.embed("cooking delicious food and noodles")
+def test_first_use_preserves_model_and_persistent_cache_configuration(boundary, tmp_path):
+    created, inputs = boundary
+    service = fastembed_service.FastEmbedService(
+        model_name='configured/model', cache_dir=str(tmp_path),
+    )
+    assert created == []
+    assert service.embed(' Hello world ') == [1.0, 2.5]
+    assert service.embed_batch([' one ', '', '   ']) == [[1.0, 2.5]] * 3
+    assert created == [{'model_name': 'configured/model', 'cache_dir': str(tmp_path)}]
+    assert inputs == [['Hello world'], ['one', 'empty', 'empty']]
 
-    def cosine(a, b):
-        dot = sum(x * y for x, y in zip(a, b))
-        na = math.sqrt(sum(x * x for x in a))
-        nb = math.sqrt(sum(y * y for y in b))
-        return dot / (na * nb)
 
-    sim_12 = cosine(v1, v2)
-    sim_13 = cosine(v1, v3)
-    assert sim_12 > sim_13
+def test_load_failure_is_deferred_and_can_retry(monkeypatch):
+    attempts = []
+
+    class RetryingEmbedding:
+        def __init__(self, **kwargs):
+            attempts.append(kwargs)
+            if len(attempts) == 1:
+                raise RuntimeError('model download unavailable')
+
+        def embed(self, texts):
+            return [[0.5] for _ in texts]
+
+    monkeypatch.setattr(fastembed_service, 'TextEmbedding', RetryingEmbedding)
+    service = fastembed_service.FastEmbedService()
+    assert attempts == []
+    with pytest.raises(RuntimeError, match='download unavailable'):
+        service.embed('test')
+    assert service.embed('test') == [0.5]
+    assert len(attempts) == 2
+
+
+def test_simultaneous_first_queries_share_one_model(boundary):
+    created, _ = boundary
+    service = fastembed_service.FastEmbedService()
+    assert created == []
+    barrier = Barrier(4)
+
+    def query(_):
+        barrier.wait(timeout=5)
+        return service.embed('test')
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        assert list(pool.map(query, range(4))) == [[1.0, 2.5]] * 4
+    assert len(created) == 1

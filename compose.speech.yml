@@ -1,0 +1,28 @@
+# Optional overlay: docker compose -f docker-compose.yml -f compose.speech.yml ...
+services:
+  api:
+    environment:
+      ENGLISH7_SPEECH_RUNTIME_URL: http://speech-runtime:8010
+  speech-runtime:
+    build:
+      context: ./speech
+    restart: unless-stopped
+    environment:
+      SPEECH_CACHE_DIR: /app/speech/.cache
+      SPEECH_BIND_HOST: 0.0.0.0
+      HF_HUB_OFFLINE: "1"
+      # Small NumPy projection calls otherwise start 12 BLAS threads and waste
+      # this container's four-CPU quota alongside the ONNX inference pools.
+      OPENBLAS_NUM_THREADS: "1"
+    volumes:
+      - ./speech/.cache:/app/speech/.cache
+    ports:
+      - "127.0.0.1:8010:8010"
+    cpus: 4
+    mem_limit: 4g
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8010/health'))['available']"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3

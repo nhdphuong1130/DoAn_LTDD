@@ -8,11 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Private/published flashcard decks, recall-based review schedules, difficult-word flags and verified textbook vocabulary seeding with real Unit/page citations.
+- Optional free CPU speech practice: bounded Android WAV recording, transcript/word comparison (not a pronunciation grade), selectable VieNeu Vietnamese feedback voices and persistent owner-scoped history.
+- Learning navigation and vocabulary/speaking progress summaries; additive migration and `make` commands for optional speech setup, startup and tests.
 - Standardized repository structure aligned with OLP 2026 open-source standards (`.agents/`, `.github/`, `infra/`, `scripts/`, `docs/`, `Makefile`).
 - Top-level `Makefile` orchestrating Docker environment, backend tests, Flutter analysis, and security audits.
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Load retrieval embeddings lazily into the persistent configured cache so model downloads cannot block login or flashcard startup.
+- Persist quiz submissions and graded answers atomically, scope progress to the authenticated student, and make submission retries idempotent. Replace the placeholder progress tab with totals, accuracy, submission history, refresh, and error recovery.
+- Added `make run` with backend readiness checks, connected emulator detection and published API port forwarding; `make up` starts core services, while `make up-full` includes the OCR worker.
+- Increased vision dependency download timeout to 300 seconds and added launcher regression tests.
 - Filtered unsuitable fragments (images, lists, arrows) and cleaned prompts in quiz generator.
 - Improved quiz question generation with targeted AI True/False/Not given answers and single-batch requests.
 

@@ -10,6 +10,8 @@ from english7.modules.media.router import router as media_router
 from english7.modules.quizzes.router import router as quizzes_router
 from english7.modules.textbooks.router import router as textbooks_router
 from english7.modules.tutor.router import router as tutor_router
+from english7.modules.flashcards.router import router as flashcards_router
+from english7.modules.speaking.router import router as speaking_router
 
 router = APIRouter()
 router.include_router(auth_router)
@@ -20,6 +22,8 @@ router.include_router(tutor_router)
 router.include_router(image_uploads_router)
 router.include_router(quizzes_router)
 router.include_router(media_router)
+router.include_router(flashcards_router)
+router.include_router(speaking_router)
 
 
 @router.get("/health", response_model=HealthResponse)

@@ -211,3 +211,78 @@ def test_change_password_rejects_invalid_requests(
         )
 
     assert captured.value.code == code
+
+
+def test_login_with_phone_number() -> None:
+    service, _, _ = build_service()
+    service.login_or_register_phone("0912345678")
+    # Set password for this phone account
+    phone_user = service.repository.get_by_email("phone_84912345678@english7.edu.vn")
+    assert phone_user is not None
+    service.change_password(
+        phone_user.id,
+        current_password="",
+        new_password="NewSecurePass123!",
+        confirm_password="NewSecurePass123!",
+    )
+    # Log in using phone format 0912345678
+    token = service.login("0912345678", "NewSecurePass123!")
+    assert token is not None
+
+    # Log in using phone format +84912345678
+    token2 = service.login("+84912345678", "NewSecurePass123!")
+    assert token2 is not None
+
+
+def test_phone_user_can_set_initial_password_without_current_password() -> None:
+    service, _, _ = build_service()
+    service.login_or_register_phone("+84987654321")
+    phone_user = service.repository.get_by_email("phone_84987654321@english7.edu.vn")
+    assert phone_user is not None
+
+    service.change_password(
+        phone_user.id,
+        current_password="",
+        new_password="BrandNewPass123!",
+        confirm_password="BrandNewPass123!",
+    )
+
+    # After setting password, verify they can authenticate
+    token = service.login("0987654321", "BrandNewPass123!")
+    assert token is not None
+
+
+def test_register_phone_success_and_conflict() -> None:
+    service, _, _ = build_service()
+    token = service.register_phone("0374423251", "StrongPass123!")
+    assert token is not None
+
+    user = service.find_phone_user("0374423251")
+    assert user is not None
+    assert user.email == "phone_84374423251@english7.edu.vn"
+
+    # Registering again raises conflict
+    with pytest.raises(ApplicationError) as exc_info:
+        service.register_phone("0374423251", "AnotherPass123!")
+    assert exc_info.value.code == "phone_already_registered"
+
+
+def test_reset_password_by_phone_success_and_not_found() -> None:
+    service, _, _ = build_service()
+    # Reset on non-existing phone raises 404
+    with pytest.raises(ApplicationError) as exc_info:
+        service.reset_password_by_phone("0999999999", "NewPassword123!")
+    assert exc_info.value.code == "phone_not_found"
+
+    # Register phone user
+    service.register_phone("0374423251", "OldPassword123!")
+
+    # Reset password
+    service.reset_password_by_phone("0374423251", "ResetNewPassword123!")
+
+    # Verify login with new password succeeds and old fails
+    assert service.login("0374423251", "ResetNewPassword123!") is not None
+    with pytest.raises(ApplicationError) as exc_info:
+        service.login("0374423251", "OldPassword123!")
+    assert exc_info.value.code == "invalid_credentials"
+

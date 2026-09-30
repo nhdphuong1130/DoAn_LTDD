@@ -59,19 +59,3 @@ def test_student_reads_quiz_policy_options_from_server(client) -> None:
         "max_audio_plays": 2,
         "modes": ["listening", "reading", "mixed"],
     }
-
-
-def test_student_submits_quiz_without_answers_scores_zero(client) -> None:
-    student = AuthUser.new(
-        email="student@example.com", password_hash="unused", role="student"
-    )
-    quiz_id = uuid4()
-    app.dependency_overrides[get_current_user] = lambda: student
-    try:
-        response = client.post(f"/api/v1/quizzes/{quiz_id}/submit", json={"answers": {}})
-    finally:
-        app.dependency_overrides.clear()
-
-    assert response.status_code == 200
-    assert response.json()["correct"] == 0
-

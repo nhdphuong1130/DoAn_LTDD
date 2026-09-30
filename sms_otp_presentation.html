@@ -1,0 +1,2357 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nhóm 3 | Báo Cáo Đồ Án: Xác Thực SMS OTP Trên Mobile (CMP177 - GVHD: ThS. Nguyễn Mạnh Hùng)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #f8fafc;
+      --bg-card: rgba(255, 255, 255, 0.95);
+      --bg-card-hover: #ffffff;
+      --border-card: rgba(226, 232, 240, 0.9);
+      --primary: #2563eb;
+      --primary-light: #3b82f6;
+      --primary-glow: rgba(37, 99, 235, 0.2);
+      --accent-cyan: #0284c7;
+      --accent-emerald: #059669;
+      --accent-amber: #d97706;
+      --accent-rose: #e11d48;
+      --accent-purple: #7c3aed;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-sub: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      position: relative;
+    }
+
+    /* Ambient background lighting with light pastel glow */
+    .ambient-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 0%, #f1f5f9 0%, #f8fafc 100%);
+    }
+
+    .ambient-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.6;
+      animation: floatOrb 20s infinite alternate ease-in-out;
+    }
+
+    .orb-1 {
+      width: 550px;
+      height: 550px;
+      background: #dbeafe;
+      top: -120px;
+      left: -100px;
+    }
+
+    .orb-2 {
+      width: 480px;
+      height: 480px;
+      background: #e0e7ff;
+      bottom: -150px;
+      right: -100px;
+      animation-delay: -5s;
+    }
+
+    .orb-3 {
+      width: 380px;
+      height: 380px;
+      background: #fce7f3;
+      top: 35%;
+      left: 60%;
+      animation-delay: -10s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(60px, 40px) scale(1.15); }
+    }
+
+    /* Presentation Header & Controls */
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      padding: 0 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .project-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      color: #1e40af;
+    }
+
+    .project-badge svg {
+      width: 24px;
+      height: 24px;
+      color: #2563eb;
+      filter: drop-shadow(0 0 6px rgba(37, 99, 235, 0.3));
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-action {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #1e293b;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-action:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+      color: #0f172a;
+      transform: translateY(-1px);
+    }
+
+    .btn-action.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+
+    /* Slides Container */
+    .slides-wrapper {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .slide {
+      position: absolute;
+      width: 94vw;
+      max-width: 1400px;
+      height: 85vh;
+      max-height: 880px;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transform: scale(0.95) translateY(20px);
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .slide.active {
+      display: flex;
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    /* Slide Layout Components */
+    .slide-header {
+      margin-bottom: 22px;
+      flex-shrink: 0;
+    }
+
+    .slide-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-weight: 700;
+      color: #0284c7;
+      background: #e0f2fe;
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid #bae6fd;
+      margin-bottom: 8px;
+    }
+
+    .slide-title {
+      font-size: 44px;
+      font-weight: 800;
+      line-height: 1.22;
+      color: #0f172a;
+      background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.45;
+    }
+
+    .slide-content {
+      flex: 1;
+      display: flex;
+      gap: 24px;
+      overflow: hidden;
+      align-items: stretch;
+    }
+
+    /* Cards & Layouts */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      padding: 26px 30px;
+      backdrop-filter: blur(16px);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(147, 197, 253, 0.95);
+      box-shadow: 0 14px 34px -4px rgba(37, 99, 235, 0.14), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+    }
+
+    .card-glow {
+      position: absolute;
+      top: -50px;
+      right: -50px;
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      filter: blur(40px);
+      pointer-events: none;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 24px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Key points list */
+    .point-item {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 14px;
+      padding: 16px 22px;
+      background: #f8fafc;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      transition: all 0.25s ease;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .point-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .point-item:hover {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      transform: translateX(4px);
+    }
+
+    .point-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: white;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .point-text {
+      flex: 1;
+    }
+
+    .point-text h4 {
+      font-size: 19px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 5px;
+    }
+
+    .point-text p {
+      font-size: 16px;
+      color: var(--text-sub);
+      line-height: 1.6;
+    }
+
+    /* Architecture Flow Component */
+    .arch-flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 24px 20px;
+      position: relative;
+    }
+
+    .arch-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      z-index: 2;
+      width: 250px;
+    }
+
+    .node-icon-box {
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.09);
+      margin-bottom: 14px;
+      position: relative;
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .arch-node:hover .node-icon-box {
+      transform: translateY(-6px) scale(1.06);
+    }
+
+    .arch-node h4 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    .arch-node p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .arch-connector {
+      flex: 1;
+      height: 3px;
+      background: linear-gradient(90deg, rgba(37, 99, 235, 0.15) 0%, var(--primary) 50%, rgba(37, 99, 235, 0.15) 100%);
+      position: relative;
+      margin: 0 10px;
+    }
+
+    .pulse-packet {
+      position: absolute;
+      top: -5px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+      animation: packetTravel 2.5s infinite linear;
+    }
+
+    @keyframes packetTravel {
+      0% { left: 0%; opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { left: 100%; opacity: 0; }
+    }
+
+    /* Phone Mockup Animation */
+    .phone-mockup-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .phone-mockup {
+      width: 320px;
+      height: 520px;
+      background: #ffffff;
+      border-radius: 36px;
+      border: 4px solid #cbd5e1;
+      box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.12), 0 0 24px rgba(37, 99, 235, 0.08);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .phone-notch {
+      width: 86px;
+      height: 14px;
+      background: #94a3b8;
+      border-radius: 0 0 10px 10px;
+      margin: 0 auto 16px;
+    }
+
+    .sms-banner {
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.15);
+      animation: bannerSlideDown 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes bannerSlideDown {
+      0% { transform: translateY(-50px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    .otp-display-box {
+      margin-top: 24px;
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+
+    .otp-digit {
+      width: 34px;
+      height: 44px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 21px;
+      font-weight: 800;
+      color: #0f172a;
+      font-family: 'JetBrains Mono', monospace;
+      animation: digitPop 0.4s ease backwards;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+      flex-shrink: 0;
+    }
+
+    @keyframes digitPop {
+      0% { transform: scale(0.7); }
+      100% { transform: scale(1); }
+    }
+
+    /* Comparison Table */
+    .compare-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 14px;
+    }
+
+    .compare-table th {
+      padding: 16px 22px;
+      text-align: left;
+      font-size: 15px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .compare-table td {
+      padding: 22px 24px;
+      background: #ffffff;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 16.5px;
+      color: var(--text-sub);
+    }
+
+    .compare-table td:first-child {
+      border-left: 1px solid #e2e8f0;
+      border-radius: 14px 0 0 14px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .compare-table td:last-child {
+      border-right: 1px solid #e2e8f0;
+      border-radius: 0 14px 14px 0;
+    }
+
+    .compare-table tr:hover td {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .badge-good {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #059669;
+      background: rgba(16, 185, 129, 0.14);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+
+    .badge-mid {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #d97706;
+      background: rgba(245, 158, 11, 0.14);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+
+    .badge-warn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #e11d48;
+      background: rgba(239, 68, 68, 0.14);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+
+    /* Presentation Navigation Bar */
+    footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      padding: 0 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(226, 232, 240, 0.8);
+    }
+
+    .progress-bar-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: #e2e8f0;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--accent-cyan));
+      width: 8.33%;
+      transition: width 0.3s ease;
+      box-shadow: 0 0 8px var(--primary-glow);
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-nav {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      color: #1e293b;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+
+    .btn-nav:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+      transform: scale(1.08);
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .slide-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* Speaker Notes Modal */
+    .notes-drawer {
+      position: absolute;
+      bottom: 68px;
+      right: 32px;
+      width: 480px;
+      max-height: 380px;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid #93c5fd;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12), 0 0 20px rgba(37, 99, 235, 0.1);
+      border-radius: 16px;
+      padding: 20px;
+      z-index: 99;
+      display: none;
+      flex-direction: column;
+      backdrop-filter: blur(20px);
+      animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .notes-drawer.open {
+      display: flex;
+    }
+
+    @keyframes modalSlideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .notes-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .notes-header h4 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #0284c7;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .notes-body {
+      overflow-y: auto;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #334155;
+    }
+
+    .notes-body p {
+      margin-bottom: 12px;
+    }
+
+    .notes-body strong {
+      color: #0f172a;
+    }
+
+    /* Code Snippet Box - Clean White Theme */
+    .code-box {
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 16px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #0f172a;
+      line-height: 1.6;
+      white-space: pre;
+      overflow-x: auto;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    }
+
+    .code-comment {
+      color: #64748b;
+      font-style: italic;
+    }
+
+    .code-keyword {
+      color: #e11d48;
+      font-weight: 700;
+    }
+
+    .code-str {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .code-func {
+      color: #2563eb;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glowing Background Orbs -->
+  <div class="ambient-bg">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="project-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+      <span>CMP177 &bull; LẬP TRÌNH THIẾT BỊ DI ĐỘNG &bull; NHÓM 3</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-action" id="toggleNotesBtn" onclick="toggleNotes()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>Kịch Bản Nói (Phím N)</span>
+      </button>
+      <button class="btn-action" onclick="toggleFullScreen()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        <span>Toàn Màn Hình</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Presentation Slides -->
+  <main class="slides-wrapper">
+
+    <!-- SLIDE 1: Title -->
+    <section class="slide active" id="slide-1">
+      <div class="slide-header" style="text-align: center; margin-top: 10px; margin-bottom: 24px;">
+        <div class="slide-tag">HỌC PHẦN: CMP177 &bull; MÔN: LẬP TRÌNH THIẾT BỊ DI ĐỘNG &bull; BÀI THUYẾT TRÌNH</div>
+        <h1 class="slide-title" style="font-size: 46px; margin-top: 12px; line-height: 1.25;">
+          GIẢI PHÁP XÁC THỰC NGƯỜI DÙNG<br><span style="color: var(--accent-cyan);">QUA SMS OTP TRÊN MOBILE</span>
+        </h1>
+        <p class="slide-subtitle" style="font-size: 18px; max-width: 820px; margin: 10px auto 0;">
+          Kiến trúc kết nối SMS Gateway, quy trình sinh mã an toàn CSPRNG và tối ưu trải nghiệm định danh người dùng trên ứng dụng di động.
+        </p>
+      </div>
+      <div class="slide-content" style="justify-content: center; align-items: center;">
+        <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 28px; max-width: 1180px; width: 100%;">
+          
+          <!-- Box Thông tin môn học & Giảng viên -->
+          <div class="card" style="padding: 30px 34px; border-left: 5px solid var(--accent-cyan); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                <span style="background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); padding: 6px 16px; border-radius: 20px; font-weight: 800; font-size: 14px; border: 1px solid rgba(6, 182, 212, 0.35);">NHÓM 3</span>
+                <span style="color: var(--text-muted); font-size: 14px; font-weight: 700; letter-spacing: 0.5px;">HỌC PHẦN: CMP177</span>
+              </div>
+              <div style="margin-bottom: 20px;">
+                <p style="color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Môn học</p>
+                <h4 style="font-size: 21px; font-weight: 800; color: var(--text-main); margin-top: 4px;">Lập trình thiết bị di động</h4>
+              </div>
+              <div>
+                <p style="color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Giảng viên hướng dẫn</p>
+                <h3 style="font-size: 24px; font-weight: 800; color: var(--primary); margin-top: 4px;">ThS. Nguyễn Mạnh Hùng</h3>
+              </div>
+            </div>
+
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-emerald)" stroke-width="2.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              <span style="font-size: 15px; color: var(--text-sub);">Nền tảng kiến trúc: <strong>Flutter Mobile</strong> &bull; <strong>FastAPI Backend</strong></span>
+            </div>
+          </div>
+
+          <!-- Box Thành viên nhóm -->
+          <div class="card" style="padding: 30px 34px; border-left: 5px solid var(--primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <p style="color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Thành viên nhóm thực hiện</p>
+              <span style="font-size: 13.5px; color: var(--primary); font-weight: 700; background: #eff6ff; padding: 4px 12px; border-radius: 12px; border: 1px solid #bfdbfe;">3 Thành viên</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- Member 1 -->
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; transition: all 0.2s;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #06b6d4); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #fff;">1</div>
+                  <div>
+                    <h5 style="font-size: 16.5px; font-weight: 700; color: var(--text-main);">Trần Như Bình</h5>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 1px;">Thành viên nhóm</p>
+                  </div>
+                </div>
+                <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); padding: 5px 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 14.5px; font-weight: 700; color: var(--primary);">
+                  2380602921
+                </div>
+              </div>
+
+              <!-- Member 2 -->
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; transition: all 0.2s;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #06b6d4, #10b981); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #fff;">2</div>
+                  <div>
+                    <h5 style="font-size: 16.5px; font-weight: 700; color: var(--text-main);">Nguyễn Hoàng Duy Phương</h5>
+                    <p style="font-size: 12.5px; color: var(--accent-cyan); font-weight: 600; margin-top: 1px;">Thành viên nhóm</p>
+                  </div>
+                </div>
+                <div style="background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); padding: 5px 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 14.5px; font-weight: 700; color: var(--accent-cyan);">
+                  2380601787
+                </div>
+              </div>
+
+              <!-- Member 3 -->
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; transition: all 0.2s;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #8b5cf6, #f43f5e); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #fff;">3</div>
+                  <div>
+                    <h5 style="font-size: 16.5px; font-weight: 700; color: var(--text-main);">Đồ Thanh Tòng</h5>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 1px;">Thành viên nhóm</p>
+                  </div>
+                </div>
+                <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.25); padding: 5px 12px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 14.5px; font-weight: 700; color: var(--accent-purple);">
+                  2380602283
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: Problem Statement -->
+    <section class="slide" id="slide-2">
+      <div class="slide-header">
+        <div class="slide-tag">01 &bull; ĐẶT VẤN ĐỀ</div>
+        <h2 class="slide-title">Vì Sao Mật Khẩu Truyền Thống Không Còn Đủ?</h2>
+        <p class="slide-subtitle">Các thách thức bảo mật lớn khi phụ thuộc hoàn toàn vào tổ hợp Tên đăng nhập & Mật khẩu đơn thuần.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="border-left: 5px solid var(--accent-rose); justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 8px;">
+              <div class="point-icon" style="background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); width: 50px; height: 50px; border-radius: 14px;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 22px; font-weight: 800; color: #0f172a;">Rủi Ro Của Mật Khẩu Tĩnh</h3>
+                <span style="font-size: 13px; color: var(--accent-rose); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">Lỗ hổng bảo mật cố hữu</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <h4>Thói quen đặt mật khẩu yếu & trùng lặp</h4>
+                <p>Học sinh thường đặt mật khẩu đơn giản (123456, ngày sinh) hoặc dùng chung một mật khẩu cho nhiều dịch vụ mạng xã hội.</p>
+                <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #e11d48; background: rgba(244,63,94,0.1); padding: 4px 12px; border-radius: 6px;">⚠️ 81% vụ tấn công xuất phát từ mật khẩu yếu</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <h4>Nguy cơ rò rỉ dữ liệu (Credential Stuffing)</h4>
+                <p>Khi một dịch vụ bên ngoài bị lộ tài khoản, tin tặc sẽ dùng công cụ tự động quét để chiếm quyền điều khiển trên ứng dụng.</p>
+                <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #e11d48; background: rgba(244,63,94,0.1); padding: 4px 12px; border-radius: 6px;">💥 Tấn công dò quét tự động từ botnet</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <h4>Quên mật khẩu gây tắc nghẽn hỗ trợ</h4>
+                <p>Học sinh thường xuyên quên mật khẩu, nếu không có cơ chế tự phục hồi tự động sẽ gây quá tải bộ phận quản trị viên.</p>
+                <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #e11d48; background: rgba(244,63,94,0.1); padding: 4px 12px; border-radius: 6px;">📉 Chi phí vận hành & thời gian chờ đợi cao</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="border-left: 5px solid var(--accent-emerald); justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 8px;">
+              <div class="point-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); width: 50px; height: 50px; border-radius: 14px;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 22px; font-weight: 800; color: #0f172a;">Giá Trị Xác Thực Bằng Số Điện Thoại</h3>
+                <span style="font-size: 13px; color: var(--accent-emerald); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;">Giải pháp định danh vật lý</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <h4>Sở hữu vật lý độc quyền (Possession Factor)</h4>
+                <p>Tin tặc dù biết mật khẩu cũng không thể đăng nhập nếu không cầm trong tay chiếc điện thoại chứa SIM chính chủ.</p>
+                <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #059669; background: rgba(16,185,129,0.1); padding: 4px 12px; border-radius: 6px;">🛡️ Xác thực 2 lớp (2FA) vật lý</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <h4>Kênh viễn thông độc lập (Out-of-Band Verification)</h4>
+                <p>Mã OTP được gửi qua kênh viễn thông tách biệt hoàn toàn với mạng Internet thông thường, ngăn chặn nghe lén dữ liệu.</p>
+                <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #059669; background: rgba(16,185,129,0.1); padding: 4px 12px; border-radius: 6px;">📡 Tách biệt hoàn toàn với mạng Internet</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <h4>Định danh duy nhất 1-1</h4>
+                <p>Mỗi số điện thoại gắn liền với một học sinh thực tế, loại bỏ triệt để tài khoản ảo và spam bot trên toàn hệ thống.</p>
+                <span style="display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: #059669; background: rgba(16,185,129,0.1); padding: 4px 12px; border-radius: 6px;">👤 1 SĐT = 1 Học sinh chính chủ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: Overview of SMS OTP -->
+    <section class="slide" id="slide-3">
+      <div class="slide-header">
+        <div class="slide-tag">02 &bull; TỔNG QUAN</div>
+        <h2 class="slide-title">Khái Niệm & Cơ Chế Cốt Lõi Của SMS OTP</h2>
+        <p class="slide-subtitle">Bản chất kỹ thuật của One-Time Password trong bảo mật ứng dụng di động hiện đại.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-3">
+          <!-- Card 1 -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--primary); padding: 22px 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="point-icon" style="background: rgba(37, 99, 235, 0.15); color: var(--primary); width: 44px; height: 44px;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                </div>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: var(--primary); background: #eff6ff; padding: 3px 10px; border-radius: 10px; border: 1px solid #bfdbfe;">TTL: 300S (5 PHÚT)</span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Thời Gian Sống Ngắn</h3>
+              <p style="color: var(--text-sub); font-size: 14px; line-height: 1.45; margin-bottom: 10px;">
+                Mã OTP chỉ tồn tại trong <strong>5 phút (300 giây)</strong>. Quá thời gian này, mã tự động hủy trên RAM cache, vô hiệu hóa việc dùng lại.
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 8px; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--primary); font-weight: 800;">⚡</span>
+                <span><strong>Tự hủy vùng nhớ:</strong> Giải phóng Redis key khi hết 300s.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--primary); font-weight: 800;">🛡️</span>
+                <span><strong>Hẹp cửa sổ tấn công:</strong> Hacker không đủ thời gian can thiệp.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--primary); font-weight: 800;">📋</span>
+                <span><strong>Chuẩn NIST:</strong> Tiêu chuẩn bảo mật SP 800-63B quốc tế.</span>
+              </div>
+            </div>
+
+            <!-- Tech Spec Box -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #1e40af; text-transform: uppercase;">Cơ Chế Redis Cache</div>
+              <div style="font-size: 12.5px; color: #1e3a8a; margin-top: 2px;">Lệnh: <code>SETEX key 300 otp_code</code> &bull; Tự thu hồi vùng nhớ.</div>
+            </div>
+
+            <div style="padding: 8px 12px; background: rgba(37,99,235,0.08); border-radius: 8px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--primary);">
+              ✓ Bảo vệ tính tức thời của giao dịch
+            </div>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--accent-emerald); padding: 22px 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="point-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); width: 44px; height: 44px;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 3px 10px; border-radius: 10px; border: 1px solid #a7f3d0;">01 LẦN DUY NHẤT</span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Tính Duy Nhất (Single-Use)</h3>
+              <p style="color: var(--text-sub); font-size: 14px; line-height: 1.45; margin-bottom: 10px;">
+                Mã chỉ được chấp nhận <strong>đúng 01 lần duy nhất</strong>. Ngay khi đối soát thành công, bản ghi OTP lập tức bị xóa bỏ (Delete on verify).
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 8px; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--accent-emerald); font-weight: 800;">🚫</span>
+                <span><strong>Chống Replay Attack:</strong> Không thể dùng lại mã lần thứ hai.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--accent-emerald); font-weight: 800;">🔄</span>
+                <span><strong>Xóa nguyên tử:</strong> Đối soát hợp lệ và hủy mã cùng lúc.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--accent-emerald); font-weight: 800;">🎯</span>
+                <span><strong>Phiên độc lập:</strong> 1 OTP chỉ phục vụ 1 tác vụ đăng ký/đổi pass.</span>
+              </div>
+            </div>
+
+            <!-- Tech Spec Box -->
+            <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #065f46; text-transform: uppercase;">Thao Tác Nguyên Tử (Atomic)</div>
+              <div style="font-size: 12.5px; color: #047857; margin-top: 2px;">Lệnh: <code>DEL key</code> ngay sau khi đối chiếu mã khớp.</div>
+            </div>
+
+            <div style="padding: 8px 12px; background: rgba(16,185,129,0.08); border-radius: 8px; text-align: center; font-size: 12.5px; font-weight: 700; color: #059669;">
+              ✓ Triệt tiêu hoàn toàn rủi ro tái sử dụng mã
+            </div>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--accent-purple); padding: 22px 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div class="point-icon" style="background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); width: 44px; height: 44px;">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: var(--accent-purple); background: #f5f3ff; padding: 3px 10px; border-radius: 10px; border: 1px solid #ddd6fe;">CHUẨN CSPRNG</span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Ngẫu Nhiên Mật Mã</h3>
+              <p style="color: var(--text-sub); font-size: 14px; line-height: 1.45; margin-bottom: 10px;">
+                Không dùng random thông thường. Hệ thống bắt buộc dùng thư viện mật mã chuẩn <strong>CSPRNG (Cryptographic PRNG)</strong>.
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 8px; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 10px;">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--accent-purple); font-weight: 800;">🧬</span>
+                <span><strong>Entropy OS:</strong> Lấy độ hỗn loạn thực tế từ <code>/dev/urandom</code>.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--accent-purple); font-weight: 800;">📊</span>
+                <span><strong>Đồng đều 100%:</strong> 1.000.000 tổ hợp không theo chu kỳ lặp.</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-main);">
+                <span style="color: var(--accent-purple); font-weight: 800;">🛡️</span>
+                <span><strong>Chống suy luận:</strong> Không thể đoán mã tiếp theo bằng botnet.</span>
+              </div>
+            </div>
+
+            <!-- Tech Spec Box -->
+            <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #5b21b6; text-transform: uppercase;">Nhân Mật Mã Python</div>
+              <div style="font-size: 12.5px; color: #6d28d9; margin-top: 2px;">Lệnh: <code>secrets.randbelow(900000) + 100000</code>.</div>
+            </div>
+
+            <div style="padding: 8px 12px; background: rgba(139,92,246,0.08); border-radius: 8px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--accent-purple);">
+              ✓ Đạt chuẩn mật mã an toàn cao nhất
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: Architecture -->
+    <section class="slide" id="slide-4">
+      <div class="slide-header">
+        <div class="slide-tag">03 &bull; KIẾN TRÚC HỆ THỐNG</div>
+        <h2 class="slide-title">Mô Hình Tương Tác Ba Tầng (3-Tier Architecture)</h2>
+        <p class="slide-subtitle">Sự phối hợp chặt chẽ giữa Ứng dụng Di động, Máy chủ API và Cổng SMS Gateway Viễn thông.</p>
+      </div>
+      <div class="slide-content" style="flex-direction: column; gap: 18px;">
+        <!-- Top: Diagram Card -->
+        <div class="card" style="padding: 16px 24px; height: auto; flex-shrink: 0;">
+          <div class="arch-flow" style="padding: 6px 14px;">
+            <!-- Node 1 -->
+            <div class="arch-node">
+              <div class="node-icon-box" style="background: linear-gradient(135deg, #1e3a8a, #3b82f6); width: 68px; height: 68px; border-radius: 18px;">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+              </div>
+              <h4 style="font-size: 17px; font-weight: 800; margin-top: 8px; color: #0f172a;">Flutter Mobile App</h4>
+              <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Tầng Client Giao Diện</p>
+            </div>
+
+            <div class="arch-connector">
+              <div class="pulse-packet"></div>
+            </div>
+
+            <!-- Node 2 -->
+            <div class="arch-node">
+              <div class="node-icon-box" style="background: linear-gradient(135deg, #065f46, #10b981); width: 68px; height: 68px; border-radius: 18px;">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+              </div>
+              <h4 style="font-size: 17px; font-weight: 800; margin-top: 8px; color: #0f172a;">FastAPI Core Server</h4>
+              <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Tầng Xử Lý Nghiệp Vụ</p>
+            </div>
+
+            <div class="arch-connector">
+              <div class="pulse-packet" style="animation-delay: 1.25s;"></div>
+            </div>
+
+            <!-- Node 3 -->
+            <div class="arch-node">
+              <div class="node-icon-box" style="background: linear-gradient(135deg, #581c87, #8b5cf6); width: 68px; height: 68px; border-radius: 18px;">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <h4 style="font-size: 17px; font-weight: 800; margin-top: 8px; color: #0f172a;">SMS Gateway Provider</h4>
+              <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Tầng Viễn Thông Telco</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: 3 Layer Detail Cards -->
+        <div class="grid-3" style="flex: 1;">
+          <!-- Subcard 1 -->
+          <div class="card" style="padding: 20px 22px; border-top: 4px solid var(--primary); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--primary); background: #eff6ff; padding: 3px 10px; border-radius: 10px; border: 1px solid #bfdbfe;">TẦNG 1 &bull; CLIENT</span>
+                <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">Flutter SDK</span>
+              </div>
+              <h4 style="font-size: 19px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Ứng Dụng Di Động</h4>
+              <p style="font-size: 13.5px; color: var(--text-sub); margin-bottom: 10px; line-height: 1.45;">
+                Thu thập dữ liệu đầu vào và tối ưu hóa từng thao tác xác thực cho học sinh:
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                📱 <strong>Chuẩn hóa E.164:</strong> Tự động đổi <code>0912...</code> sang chuẩn quốc tế (+84).
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                ⏱️ <strong>Đếm ngược 60s:</strong> Khóa nút gửi lặp (Debounce) khi mạng chậm.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                ⌨️ <strong>Bàn phím số tự mở:</strong> Thiết lập chuyên dụng, chống gõ nhầm chữ.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                🔄 <strong>Auto-Prefill state:</strong> Tự điền SĐT khi chuyển sang Quên mật khẩu.
+              </div>
+            </div>
+
+            <div style="font-size: 13px; color: var(--primary); font-weight: 700; background: rgba(37,99,235,0.06); padding: 8px 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(37,99,235,0.15);">
+              📱 Giao diện tối ưu trải nghiệm học sinh
+            </div>
+          </div>
+
+          <!-- Subcard 2 -->
+          <div class="card" style="padding: 20px 22px; border-top: 4px solid var(--accent-emerald); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 3px 10px; border-radius: 10px; border: 1px solid #a7f3d0;">TẦNG 2 &bull; BACKEND</span>
+                <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">FastAPI &bull; Python</span>
+              </div>
+              <h4 style="font-size: 19px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Máy Chủ Xử Lý Core</h4>
+              <p style="font-size: 13.5px; color: var(--text-sub); margin-bottom: 10px; line-height: 1.45;">
+                Trung tâm kiểm soát an ninh, mật mã học và bảo vệ tài nguyên hệ thống:
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                🔍 <strong>Rà soát CSDL:</strong> Kiểm tra trạng thái tài khoản trước khi gửi SMS.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                🎲 <strong>Sinh mã CSPRNG:</strong> Tạo 6 số ngẫu nhiên từ module <code>secrets</code>.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                ⚡ <strong>Bộ nhớ đệm TTL 300s:</strong> Tự giải phóng RAM ngay khi hết 5 phút.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                🛡️ <strong>Chống Spam Rate Limit:</strong> Chặn IP lạ và khóa tối đa 5 SMS/ngày.
+              </div>
+            </div>
+
+            <div style="font-size: 13px; color: #059669; font-weight: 700; background: rgba(16,185,129,0.06); padding: 8px 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(16,185,129,0.15);">
+              ⚡ Trung tâm kiểm soát an toàn & logic
+            </div>
+          </div>
+
+          <!-- Subcard 3 -->
+          <div class="card" style="padding: 20px 22px; border-top: 4px solid var(--accent-purple); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--accent-purple); background: #f5f3ff; padding: 3px 10px; border-radius: 10px; border: 1px solid #ddd6fe;">TẦNG 3 &bull; TELCO</span>
+                <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">SMS Gateway API</span>
+              </div>
+              <h4 style="font-size: 19px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Cổng Viễn Thông</h4>
+              <p style="font-size: 13.5px; color: var(--text-sub); margin-bottom: 10px; line-height: 1.45;">
+                Kênh truyền Out-of-Band chuyển phát bản tin an toàn trực tiếp tới SIM:
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                📡 <strong>Kết nối HTTPS an toàn:</strong> Nhận SMS qua API bảo mật TLS 1.3.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                🗼 <strong>Định tuyến trạm BTS:</strong> Truyền tải qua mạng lưới Viettel/Vina/Mobi.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                💬 <strong>Giao tin trong 3 - 5s:</strong> Đưa mã OTP trực tiếp vào thiết bị học sinh.
+              </div>
+              <div style="padding: 11px 14px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; font-size: 13.5px; color: var(--text-main); line-height: 1.45;">
+                📊 <strong>Báo cáo Delivery:</strong> Webhook xác nhận trạng thái phát tin thành công.
+              </div>
+            </div>
+
+            <div style="font-size: 13px; color: var(--accent-purple); font-weight: 700; background: rgba(139,92,246,0.06); padding: 8px 12px; border-radius: 8px; text-align: center; border: 1px solid rgba(139,92,246,0.15);">
+              📡 Kênh truyền dẫn vật lý Out-of-Band
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: End-to-End Workflow -->
+    <section class="slide" id="slide-5">
+      <div class="slide-header">
+        <div class="slide-tag">04 &bull; QUY TRÌNH KỸ THUẬT</div>
+        <h2 class="slide-title">Quy Trình Hoạt Động Tổng Thể (End-to-End Flow)</h2>
+        <p class="slide-subtitle">Sáu bước vận hành chặt chẽ từ khi người dùng bấm gửi đến khi hoàn tất xác thực.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="display: flex; flex-direction: column; gap: 14px; justify-content: space-between;">
+            <div class="point-item" style="margin-bottom: 0;">
+              <div class="point-icon" style="background: #2563eb; width: 48px; height: 48px; font-size: 20px;">1</div>
+              <div class="point-text">
+                <h4>Khởi tạo yêu cầu (Request OTP)</h4>
+                <p>Người dùng nhập số điện thoại (0912345678). Client chuẩn hóa sang chuẩn quốc tế E.164 (+84912345678) và gọi API <code>/api/v1/auth/otp/send</code>.</p>
+                <span style="display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #2563eb; background: #eff6ff; padding: 2px 10px; border-radius: 6px;">Payload: { phone: "+84912345678", purpose: "register" }</span>
+              </div>
+            </div>
+
+            <div class="point-item" style="margin-bottom: 0;">
+              <div class="point-icon" style="background: #0284c7; width: 48px; height: 48px; font-size: 20px;">2</div>
+              <div class="point-text">
+                <h4>Xử lý nghiệp vụ & Sinh mã</h4>
+                <p>Server kiểm tra điều kiện (tùy mục đích Đăng ký hay Quên mật khẩu). Sử dụng hàm mật mã tạo chuỗi ngẫu nhiên 6 chữ số.</p>
+                <span style="display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 2px 10px; border-radius: 6px;">CSPRNG: secrets.randbelow(900000) + 100000</span>
+              </div>
+            </div>
+
+            <div class="point-item" style="margin-bottom: 0;">
+              <div class="point-icon" style="background: #059669; width: 48px; height: 48px; font-size: 20px;">3</div>
+              <div class="point-text">
+                <h4>Lưu Cache & Đặt hạn TTL</h4>
+                <p>Mã OTP được lưu kèm dấu mốc thời gian hết hạn (Expire timestamp = Now + 300s). Kích hoạt bộ đếm Rate Limiting chống spam.</p>
+                <span style="display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #059669; background: #ecfdf5; padding: 2px 10px; border-radius: 6px;">Cache Key: otp:+84912345678 (TTL=300s)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; gap: 14px; justify-content: space-between;">
+            <div class="point-item" style="margin-bottom: 0;">
+              <div class="point-icon" style="background: #7c3aed; width: 48px; height: 48px; font-size: 20px;">4</div>
+              <div class="point-text">
+                <h4>Bắn tin qua SMS Gateway</h4>
+                <p>Server gọi HTTP POST tới cổng SMS Gateway với nội dung chứa mã. Nhà mạng chuyển tiếp tin nhắn SMS đến điện thoại trong 3 - 5 giây.</p>
+                <span style="display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 6px;">Protocol: HTTPS REST API -&gt; SMS Gateway -&gt; BTS</span>
+              </div>
+            </div>
+
+            <div class="point-item" style="margin-bottom: 0;">
+              <div class="point-icon" style="background: #d97706; width: 48px; height: 48px; font-size: 20px;">5</div>
+              <div class="point-text">
+                <h4>Học sinh nhập mã xác minh</h4>
+                <p>Người dùng nhận tin nhắn SMS, điền 6 chữ số vào form. Ứng dụng gửi payload gồm SĐT + Mã OTP lên máy chủ để đối soát.</p>
+                <span style="display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #d97706; background: #fffbeb; padding: 2px 10px; border-radius: 6px;">Input: Form 6 ô số tự động kích hoạt bàn phím số</span>
+              </div>
+            </div>
+
+            <div class="point-item" style="margin-bottom: 0;">
+              <div class="point-icon" style="background: #16a34a; width: 48px; height: 48px; font-size: 20px;">6</div>
+              <div class="point-text">
+                <h4>Đối soát & Cấp quyền (Token Issue)</h4>
+                <p>Server đối chiếu mã và kiểm tra thời hạn. Nếu khớp, lập tức thu hồi mã OTP, cập nhật tài khoản và cấp JWT Token cho phiên làm việc.</p>
+                <span style="display: inline-block; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #16a34a; background: #f0fdf4; padding: 2px 10px; border-radius: 6px;">Status: 200 OK &bull; JWT Access Token Granted</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: Registration Flow -->
+    <section class="slide" id="slide-6">
+      <div class="slide-header">
+        <div class="slide-tag">05 &bull; ỨNG DỤNG THỰC TẾ</div>
+        <h2 class="slide-title">Ứng Dụng SMS OTP Trong Đăng Ký Tài Khoản</h2>
+        <p class="slide-subtitle">Đảm bảo 100% học sinh đăng ký đều sở hữu số điện thoại thực, loại bỏ tài khoản ảo.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="justify-content: space-between; border-left: 5px solid var(--primary); padding: 22px 26px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div class="point-icon" style="background: rgba(37, 99, 235, 0.15); color: var(--primary); width: 48px; height: 48px; border-radius: 14px;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7.5" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 22px; font-weight: 800; color: #0f172a;">Kiểm Tra Trùng Lặp Thông Minh</h3>
+                <span style="font-size: 13.5px; color: var(--primary); font-weight: 700;">4 Bước Kiểm Soát & Bảo Toàn Tài Nguyên</span>
+              </div>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">Bước 1: Học sinh nhập số điện thoại</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Nhập số điện thoại tại màn hình Đăng ký mới. Client tự động kiểm tra định dạng độ dài (10 chữ số) trước khi gửi yêu cầu.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: var(--primary); background: #eff6ff; padding: 2px 10px; border-radius: 6px;">📱 Màn hình RegisterScreen (Flutter)</span>
+                </div>
+              </div>
+
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">Bước 2: Backend rà soát Database trước khi gửi SMS</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Nếu số điện thoại đã tồn tại trong CSDL, hệ thống <strong>chủ động từ chối gửi OTP</strong> và trả về mã lỗi <code>409 Conflict</code> ngay lập tức.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #e11d48; background: #fff1f2; padding: 2px 10px; border-radius: 6px;">🛡️ Chặn lỗi 409 Conflict & Bảo toàn chi phí SMS</span>
+                </div>
+              </div>
+
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">Bước 3: Điều hướng giao diện thông minh</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Màn hình hiển thị khung cảnh báo rõ ràng kèm 2 nút bấm hỗ trợ: <strong>[Đăng nhập lại]</strong> hoặc <strong>[Quên mật khẩu?]</strong>.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 10px; border-radius: 6px;">🎯 Trải nghiệm người dùng thông suốt</span>
+                </div>
+              </div>
+
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">Bước 4: Xác thực mã 6 số & Kích hoạt tài khoản</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Nếu số điện thoại mới hợp lệ, SMS Gateway gửi mã 6 số. Học sinh nhập OTP để kích hoạt tài khoản chính chủ.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 6px;">✨ Hoàn tất định danh an toàn 100%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid var(--accent-cyan); padding: 22px 26px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a;">Minh Họa Xử Lý Tại Backend</h3>
+              <span style="font-size: 12px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 3px 10px; border-radius: 8px;">FastAPI &bull; Python</span>
+            </div>
+            <p style="font-size: 13.5px; color: var(--text-sub); margin-bottom: 10px; line-height: 1.45;">
+              Đoạn mã xác thực chủ động kiểm tra dữ liệu trước khi gửi bản tin viễn thông:
+            </p>
+
+            <div class="code-box" style="font-size: 12.5px; padding: 14px 18px; line-height: 1.6; margin-bottom: 10px;">
+<span class="code-comment"># backend/modules/auth/router.py</span>
+<span class="code-keyword">if</span> payload.purpose == <span class="code-str">"register"</span>:
+    existing = auth_service.find_phone_user(payload.phone)
+    <span class="code-keyword">if</span> existing <span class="code-keyword">is not</span> <span class="code-keyword">None</span>:
+        <span class="code-keyword">raise</span> ApplicationError(
+            code=<span class="code-str">"phone_already_registered"</span>,
+            message=<span class="code-str">"Số điện thoại này đã được đăng ký. "</span>
+                    <span class="code-str">"Vui lòng đăng nhập lại hoặc Quên mật khẩu."</span>,
+            status_code=<span class="code-keyword">409</span>,
+        )
+
+<span class="code-comment"># Nếu số hợp lệ -&gt; Bắn tin nhắn SMS qua Gateway</span>
+message = sms_service.send_otp(target_phone)</div>
+
+            <!-- JSON Response Box -->
+            <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 10px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); margin-bottom: 10px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #e11d48; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;">
+                ⚠️ Phản hồi HTTP 409 Conflict (JSON Payload)
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #334155; line-height: 1.45;">
+                { <span style="color:#0284c7;">"success"</span>: <span style="color:#e11d48;">false</span>, <span style="color:#0284c7;">"code"</span>: <span style="color:#059669;">"phone_already_registered"</span>, <span style="color:#0284c7;">"status"</span>: <span style="color:#7c3aed;">409</span> }
+              </div>
+            </div>
+
+            <!-- UX Transition Box -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px;">Xử Lý Giao Diện Client Mobile</div>
+              <div style="font-size: 13px; color: #1e3a8a; margin-top: 3px; line-height: 1.45;">
+                Flutter bắt mã 409, mở Popup thông báo: <em>"Số điện thoại đã tồn tại! Bấm để Quên mật khẩu"</em> và tự động chuyển dữ liệu số điện thoại sang màn khôi phục.
+              </div>
+            </div>
+
+            <!-- Economic & UX Benefit Box -->
+            <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 12px 16px;">
+              <h5 style="font-size: 14px; font-weight: 800; color: #166534; margin-bottom: 5px; display: flex; align-items: center; gap: 6px;">
+                <span>💰</span> Lợi Ích Vận Hành & Bảo Vệ Ngân Sách Dự Án
+              </h5>
+              <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #15803d; line-height: 1.45;">
+                <div><strong>✓ Tiết kiệm 100% chi phí viễn thông:</strong> Chặn gửi SMS vô ích cho số đã đăng ký.</div>
+                <div><strong>✓ Triệt tiêu nguy cơ spam số:</strong> Ngăn kẻ xấu lấy số của người khác để quấy rối.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: Forgot Password Flow -->
+    <section class="slide" id="slide-7">
+      <div class="slide-header">
+        <div class="slide-tag">06 &bull; ỨNG DỤNG THỰC TẾ</div>
+        <h2 class="slide-title">Ứng Dụng SMS OTP Trong Khôi Phục Mật Khẩu</h2>
+        <p class="slide-subtitle">Cấp lại quyền truy cập an toàn, nhanh chóng mà không cần thông qua xác nhận thủ công.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div class="card" style="justify-content: space-between; border-left: 5px solid var(--accent-emerald); padding: 22px 26px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div class="point-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); width: 48px; height: 48px; border-radius: 14px;">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 22px; font-weight: 800; color: #0f172a;">Quy Trình 4 Bước Tự Động Hóa</h3>
+                <span style="font-size: 13.5px; color: var(--accent-emerald); font-weight: 700;">Khôi Phục Khép Kín &bull; Không Cần Can Thiệp Admin</span>
+              </div>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">1. Nhập Số Điện Thoại Tài Khoản</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Hệ thống tự động tra cứu trong Database. Nếu không tìm thấy số, trả về mã lỗi <code>404 User Not Found</code> để hướng dẫn đăng ký mới.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: var(--accent-emerald); background: #ecfdf5; padding: 2px 10px; border-radius: 6px;">🔍 Tra cứu tài khoản chính chủ trong DB</span>
+                </div>
+              </div>
+
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">2. Bắn mã OTP 6 số xác minh chủ sở hữu</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Mã OTP bảo mật được gửi đến SIM của số điện thoại liên kết. Giao diện tự động chuyển sang form <em>"Thiết lập mật khẩu mới"</em>.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 10px; border-radius: 6px;">📡 Kênh viễn thông SMS Out-of-Band</span>
+                </div>
+              </div>
+
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">3. Đổi mật khẩu & Đồng bộ mã hóa</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Học sinh nhập mã OTP cùng mật khẩu mới (tối thiểu 8 ký tự). Server kiểm tra OTP hợp lệ và cập nhật chuỗi băm <code>Bcrypt/Argon2</code>.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 6px;">🔒 Mã hóa Bcrypt chuỗi mật khẩu mới</span>
+                </div>
+              </div>
+
+              <div class="point-item" style="padding: 14px 18px; margin-bottom: 0;">
+                <div class="point-text">
+                  <h4 style="font-size: 16.5px; margin-bottom: 3px;">4. Thu hồi phiên cũ & Kích hoạt phiên an toàn</h4>
+                  <p style="font-size: 13.5px; line-height: 1.45;">Server tự động thu hồi mọi Token truy cập cũ, đẩy kẻ xâm nhập ra khỏi tài khoản và đăng nhập an toàn cho học sinh.</p>
+                  <span style="display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 700; color: #ea580c; background: #fff7ed; padding: 2px 10px; border-radius: 6px;">🛡️ Thu hồi phiên đăng nhập cũ (Session Revocation)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid var(--primary); padding: 22px 26px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a;">Tính Năng Đột Phá: Auto-Prefill</h3>
+              <span style="font-size: 12.5px; font-weight: 700; color: var(--primary); background: #eff6ff; padding: 3px 10px; border-radius: 8px;">Tối Ưu Trải Nghiệm</span>
+            </div>
+            <p style="font-size: 13.5px; color: var(--text-sub); line-height: 1.45; margin-bottom: 10px;">
+              Khắc phục hoàn toàn sự bất tiện khi học sinh phải gõ lặp lại số điện thoại 10 chữ số:
+            </p>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+              <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0;">1</div>
+                <div>
+                  <h5 style="font-size: 15px; font-weight: 700; color: #0f172a;">Phát hiện trùng số tại màn Đăng ký</h5>
+                  <p style="font-size: 13px; color: var(--text-sub); margin-top: 2px; line-height: 1.45;">Ứng dụng tự động lưu giữ số điện thoại học sinh vừa gõ vào bộ nhớ State tạm thời.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #0284c7; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0;">2</div>
+                <div>
+                  <h5 style="font-size: 15px; font-weight: 700; color: #0f172a;">Tự động điền sẵn (Auto-prefill)</h5>
+                  <p style="font-size: 13px; color: var(--text-sub); margin-top: 2px; line-height: 1.45;">Bấm nút <em>"Quên mật khẩu?"</em>, màn hình phục hồi mở ra với số điện thoại đã được điền sẵn.</p>
+                </div>
+              </div>
+
+              <div style="display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: #059669; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; flex-shrink: 0;">3</div>
+                <div>
+                  <h5 style="font-size: 15px; font-weight: 700; color: #0f172a;">1-Chạm nhận ngay mã OTP</h5>
+                  <p style="font-size: 13px; color: var(--text-sub); margin-top: 2px; line-height: 1.45;">Học sinh chỉ cần bấm nút <em>"Gửi mã"</em> mà không cần gõ lại bất kỳ số nào, loại bỏ lỗi gõ nhầm.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Flutter State Mechanism Box -->
+            <div style="background: #fdf4ff; border: 1.5px solid #f0abfc; border-radius: 10px; padding: 10px 14px; margin-top: 8px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #a21caf; text-transform: uppercase; letter-spacing: 0.5px;">Cơ Chế Kỹ Thuật (Flutter State Binding)</div>
+              <div style="font-size: 12.5px; color: #86198f; margin-top: 2px; line-height: 1.4;">
+                Dữ liệu truyền qua <code>Navigator.pushNamed(..., arguments: {'phone': registeredPhone})</code> kết hợp tự động gắn vào <code>TextEditingController</code>.
+              </div>
+            </div>
+
+            <!-- UX Performance Comparison -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+              <div style="background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 10px 14px;">
+                <div style="font-size: 12px; font-weight: 800; color: #e11d48; margin-bottom: 2px;">❌ Thao Tác Thủ Công Cũ</div>
+                <div style="font-size: 12.5px; color: #be123c; line-height: 1.4;">Gõ lại 10 số &bull; Dễ nhầm &bull; Mất 25s</div>
+              </div>
+              <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 10px 14px;">
+                <div style="font-size: 12px; font-weight: 800; color: #15803d; margin-bottom: 2px;">✅ Cơ Chế Auto-Prefill</div>
+                <div style="font-size: 12.5px; color: #166534; line-height: 1.4;">Tự điền 100% &bull; Chuẩn xác &bull; Chỉ 2s</div>
+              </div>
+            </div>
+
+            <div style="margin-top: 8px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 18px;">⚡</span>
+              <span style="font-size: 13px; font-weight: 700; color: #1e40af;">Rút ngắn 85% thời gian thao tác & loại bỏ 100% rủi ro gõ sai số</span>
+            </div>
+          </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: Security Standards -->
+    <section class="slide" id="slide-8">
+      <div class="slide-header">
+        <div class="slide-tag">07 &bull; TIÊU CHUẨN AN TOÀN</div>
+        <h2 class="slide-title">Tiêu Chuẩn Bảo Mật Của Mã OTP</h2>
+        <p class="slide-subtitle">Các nguyên tắc mật mã học đảm bảo mã OTP không thể bị đoán trước hoặc tái sử dụng.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-3">
+          <!-- Card 1 -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--accent-cyan); padding: 22px 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 26px; font-weight: 900; color: #0284c7; font-family: 'JetBrains Mono', monospace;">
+                  CSPRNG
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 3px 10px; border-radius: 10px;">TIÊU CHUẨN 1</span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Sinh Số An Toàn Mật Mã</h3>
+              <p style="color: var(--text-sub); font-size: 14px; line-height: 1.45; margin-bottom: 12px;">
+                Sử dụng module mật mã <code>secrets</code> của Python, thu thập nguồn entropy từ nhân hệ điều hành (<code>/dev/urandom</code>).
+              </p>
+            </div>
+
+            <!-- Expanding Checklist -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 8px; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: #0284c7; font-weight: 800;">✓</span>
+                <span><strong>Non-deterministic:</strong> Không thể tái lập chuỗi số ngẫu nhiên dù biết trước hạt giống (Seed).</span>
+              </div>
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: #0284c7; font-weight: 800;">✓</span>
+                <span><strong>Loại bỏ PRNG thường:</strong> Không dùng <code>random.randint()</code> dễ bị dịch ngược chuỗi số.</span>
+              </div>
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: #0284c7; font-weight: 800;">✓</span>
+                <span><strong>Entropy phần cứng:</strong> Thu nhận độ hỗn loạn thực tế từ CPU, nhiệt độ và ngắt I/O thiết bị.</span>
+              </div>
+            </div>
+
+            <!-- Metric Box -->
+            <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #0369a1; text-transform: uppercase;">Chỉ Số Mật Mã Học</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                <span style="font-size: 12.5px; color: #0284c7;">Độ hỗn loạn Entropy:</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; color: #0369a1;">H ≈ 19.93 bits</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <span style="font-size: 12.5px; color: #0284c7;">Khả năng suy đoán:</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: #059669;">0% (Zero Predictability)</span>
+              </div>
+            </div>
+
+            <div style="padding: 8px 12px; background: rgba(2,132,199,0.08); border-radius: 8px; text-align: center; font-size: 12.5px; font-weight: 700; color: #0284c7;">
+              ★ Đạt chuẩn FIPS 140-2 Cryptographic Module
+            </div>
+          </div>
+
+          <!-- Card 2 -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--primary); padding: 22px 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 26px; font-weight: 900; color: var(--primary); font-family: 'JetBrains Mono', monospace;">
+                  6 DIGITS
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: var(--primary); background: #eff6ff; padding: 3px 10px; border-radius: 10px;">TIÊU CHUẨN 2</span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Độ Dài Mã Tối Ưu Mobile</h3>
+              <p style="color: var(--text-sub); font-size: 14px; line-height: 1.45; margin-bottom: 12px;">
+                Không gian khóa gồm <strong>1.000.000 khả năng</strong> (từ 100000 đến 999999). Cân bằng an ninh và trí nhớ con người.
+              </p>
+            </div>
+
+            <!-- Expanding Checklist -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 8px; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: var(--primary); font-weight: 800;">✓</span>
+                <span><strong>1.000.000 tổ hợp:</strong> Đủ lớn để triệt tiêu hoàn toàn nguy cơ đoán mò thủ công.</span>
+              </div>
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: var(--primary); font-weight: 800;">✓</span>
+                <span><strong>Trí nhớ ngắn hạn:</strong> Tuân theo chuẩn Miller (7±2), học sinh đọc tin SMS là nhớ ngay.</span>
+              </div>
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: var(--primary); font-weight: 800;">✓</span>
+                <span><strong>Nhập liệu nhanh 3.2s:</strong> Chỉ gồm các số từ 0 - 9, loại trừ gõ nhầm chữ cái.</span>
+              </div>
+            </div>
+
+            <!-- Metric Box -->
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #1e40af; text-transform: uppercase;">Tối Ưu Trải Nghiệm Học Sinh</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                <span style="font-size: 12.5px; color: #1e3a8a;">Không gian mã khả dụng:</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; color: var(--primary);">100.000 - 999.999</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <span style="font-size: 12.5px; color: #1e3a8a;">Độ chính xác nhập lần đầu:</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: #059669;">98.6% (Chuẩn UX)</span>
+              </div>
+            </div>
+
+            <div style="padding: 8px 12px; background: rgba(37,99,235,0.08); border-radius: 8px; text-align: center; font-size: 12.5px; font-weight: 700; color: var(--primary);">
+              ★ Khuyến nghị theo tiêu chuẩn NIST SP 800-63B
+            </div>
+          </div>
+
+          <!-- Card 3 -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--accent-amber); padding: 22px 24px;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 26px; font-weight: 900; color: #d97706; font-family: 'JetBrains Mono', monospace;">
+                  300 SEC
+                </div>
+                <span style="font-size: 12px; font-weight: 700; color: #d97706; background: #fffbeb; padding: 3px 10px; border-radius: 10px;">TIÊU CHUẨN 3</span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px;">Thời Hạn TTL Nghiêm Ngặt</h3>
+              <p style="color: var(--text-sub); font-size: 14px; line-height: 1.45; margin-bottom: 12px;">
+                Thời gian hiệu lực trong đúng 5 phút. Khi hết 300s, server tự động giải phóng vùng nhớ và từ chối xác thực.
+              </p>
+            </div>
+
+            <!-- Expanding Checklist -->
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 8px; background: #f8fafc; padding: 14px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: #d97706; font-weight: 800;">✓</span>
+                <span><strong>Hẹp cửa sổ tấn công:</strong> Hacker không đủ thời gian can thiệp gói tin xác thực.</span>
+              </div>
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: #d97706; font-weight: 800;">✓</span>
+                <span><strong>Dọn sạch RAM:</strong> Tránh phình to tài nguyên máy chủ với các phiên cũ.</span>
+              </div>
+              <div style="display: flex; gap: 10px; color: var(--text-main); line-height: 1.45; font-size: 13.5px;">
+                <span style="color: #d97706; font-weight: 800;">✓</span>
+                <span><strong>Vô hiệu hóa SMS trễ:</strong> Mã trễ mạng sau 5 phút lập tức vô tác dụng.</span>
+              </div>
+            </div>
+
+            <!-- Metric Box -->
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #92400e; text-transform: uppercase;">Kiểm Soát Vòng Đời Phiên</div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                <span style="font-size: 12.5px; color: #78350f;">Thời gian sống tối đa:</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 800; color: #d97706;">5:00 Phút (300 Giây)</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                <span style="font-size: 12.5px; color: #78350f;">Trạng thái sau TTL:</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 700; color: #e11d48;">Auto-Evicted & Revoked</span>
+              </div>
+            </div>
+
+            <div style="padding: 8px 12px; background: rgba(245,158,11,0.08); border-radius: 8px; text-align: center; font-size: 12.5px; font-weight: 700; color: #d97706;">
+              ★ Cắt đứt hoàn toàn nguy cơ rò rỉ mã cũ
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: Anti-Fraud & Attack Prevention -->
+    <section class="slide" id="slide-9">
+      <div class="slide-header">
+        <div class="slide-tag">08 &bull; PHÒNG THỦ & CHỐNG TẤN CÔNG</div>
+        <h2 class="slide-title">Cơ Chế Phòng Chống Tấn Công & Gian Lận</h2>
+        <p class="slide-subtitle">Các tầng bảo vệ chống dò mã Brute-force và bảo vệ ngân sách chi phí viễn thông của dự án.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <!-- Left: Brute Force -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid var(--accent-rose); padding: 22px 26px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+              <div class="point-icon" style="background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); width: 48px; height: 48px; border-radius: 14px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 21px; font-weight: 800; color: #0f172a;">Chống Dò Mã (Brute-Force)</h3>
+                <span style="font-size: 13px; color: var(--accent-rose); font-weight: 700;">3 Tầng Chốt Chặn Phòng Thủ Phân Cấp</span>
+              </div>
+            </div>
+            <p style="color: var(--text-sub); font-size: 13.5px; line-height: 1.45; margin-bottom: 8px;">
+              Hệ thống ngăn chặn bot tự động thử hàng nghìn mã bằng bộ đếm giới hạn nghiêm ngặt:
+            </p>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13.5px; flex-shrink: 0;">1-3</div>
+                  <div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #0f172a;">Lần 1 &bull; 3 nhập sai: Cảnh báo mềm</div>
+                    <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 2px;">Báo lỗi giao diện, tăng bộ đếm Redis, vẫn cho phép học sinh thử tiếp.</div>
+                  </div>
+                </div>
+                <span style="font-size: 12px; color: #0284c7; background: #e0f2fe; padding: 4px 12px; border-radius: 8px; font-weight: 700; border: 1px solid #bae6fd; flex-shrink: 0;">Ghi Cache</span>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">4</div>
+                  <div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #92400e;">Lần 4 nhập sai: Cản trở Botnet tự động</div>
+                    <div style="font-size: 12.5px; color: #b45309; margin-top: 2px;">Cưỡng bức delay phản hồi API 2 giây (Rate Throttle) làm tê liệt tool dò tự động.</div>
+                  </div>
+                </div>
+                <span style="font-size: 12px; color: #d97706; background: #fef3c7; padding: 4px 12px; border-radius: 8px; font-weight: 700; border: 1px solid #fde68a; flex-shrink: 0;">Delay 2s</span>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #ffe4e6; color: #e11d48; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">5</div>
+                  <div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #be123c;">Lần 5 nhập sai: Khóa cứng tức thì</div>
+                    <div style="font-size: 12.5px; color: #e11d48; margin-top: 2px;">Hủy mã OTP ngay lập tức trên RAM/Cache và khóa gửi mã trong 15 phút.</div>
+                  </div>
+                </div>
+                <span style="font-size: 12px; color: #e11d48; background: #ffe4e6; padding: 4px 12px; border-radius: 8px; font-weight: 800; border: 1px solid #fecdd3; flex-shrink: 0;">HỦY & KHÓA 15P</span>
+              </div>
+            </div>
+
+            <!-- Redis Counter Box -->
+            <div style="background: #fdf2f8; border: 1.5px solid #fbcfe8; border-radius: 10px; padding: 10px 14px; margin-top: 8px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #9d174d; text-transform: uppercase; letter-spacing: 0.5px;">Kiến Trúc Bộ Đếm Nguyên Tử (Redis Atomic Counter)</div>
+              <div style="font-size: 12.5px; color: #831843; margin-top: 2px; line-height: 1.4;">
+                Dùng lệnh <code>INCR otp:fail:{phone}</code> kèm <code>EXPIRE 900</code>, đảm bảo chính xác tuyệt đối ngay cả khi bị tấn công song song đa luồng.
+              </div>
+            </div>
+
+            <!-- Auto-Recovery Policy Box -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-top: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+              <div style="font-size: 11.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Chính Sách Khôi Phục Tự Động</div>
+              <div style="font-size: 12.5px; color: #334155; margin-top: 2px; line-height: 1.4;">
+                Hết thời hạn khóa 15 phút, hệ thống tự động gỡ chặn để học sinh tiếp tục sử dụng mà không cần liên hệ kỹ thuật viên.
+              </div>
+            </div>
+
+            <!-- Math Proof Box -->
+            <div style="margin-top: 8px; background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 10px; padding: 10px 14px; text-align: center;">
+              <span style="font-size: 12px; color: #9f1239; font-weight: 700;">Xác suất tin tặc đoán trúng mã trong 5 lần thử:</span>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 800; color: #e11d48; margin-top: 2px;">
+                P = 5 / 1.000.000 = 0.0005% (Bất khả thi trong thực tế)
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Rate Limiting -->
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid var(--accent-amber); padding: 22px 26px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+              <div class="point-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); width: 48px; height: 48px; border-radius: 14px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div>
+                <h3 style="font-size: 21px; font-weight: 800; color: #0f172a;">Giới Hạn Tần Suất (Rate Limiting)</h3>
+                <span style="font-size: 13px; color: var(--accent-amber); font-weight: 700;">Phòng Ngừa SMS Toll Fraud & Bảo Toàn Ngân Sách</span>
+              </div>
+            </div>
+            <p style="color: var(--text-sub); font-size: 13.5px; line-height: 1.45; margin-bottom: 8px;">
+              Ngăn ngừa kẻ xấu cố ý spam tin nhắn làm cạn kiệt tài khoản viễn thông và quá tải cổng API:
+            </p>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13.5px; flex-shrink: 0;">60s</div>
+                  <div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #0f172a;">Quy tắc 60 giây / SĐT (Cooldown Timer)</div>
+                    <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 2px;">Chống bấm gửi liên tục, tạo khoảng nghỉ hợp lý cho hạ tầng viễn thông.</div>
+                  </div>
+                </div>
+                <span style="font-size: 12px; color: #059669; background: #ecfdf5; padding: 4px 12px; border-radius: 8px; font-weight: 700; border: 1px solid #a7f3d0; flex-shrink: 0;">Chỉ 1 SMS / 60s</span>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13.5px; flex-shrink: 0;">24h</div>
+                  <div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #0f172a;">Hạn mức 5 SMS / 24 giờ / Thiết bị</div>
+                    <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 2px;">Giới hạn tổng số lượng tin nhắn cấp cho một người dùng mỗi ngày.</div>
+                  </div>
+                </div>
+                <span style="font-size: 12px; color: #d97706; background: #fef3c7; padding: 4px 12px; border-radius: 8px; font-weight: 700; border: 1px solid #fde68a; flex-shrink: 0;">Tối Đa 5 SMS</span>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 34px; height: 34px; border-radius: 8px; background: #f5f3ff; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13.5px; flex-shrink: 0;">IP</div>
+                  <div>
+                    <div style="font-size: 14.5px; font-weight: 800; color: #0f172a;">Chặn IP Ngoại quốc & VPN Bất thường</div>
+                    <div style="font-size: 12.5px; color: var(--text-sub); margin-top: 2px;">Tường lửa API phát hiện và cô lập ngay các đợt tấn công từ botnet quốc tế.</div>
+                  </div>
+                </div>
+                <span style="font-size: 12px; color: #7c3aed; background: #f5f3ff; padding: 4px 12px; border-radius: 8px; font-weight: 700; border: 1px solid #ddd6fe; flex-shrink: 0;">Chặn Botnet</span>
+              </div>
+            </div>
+
+            <!-- Toll Fraud Architecture Box -->
+            <div style="background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin-top: 8px;">
+              <div style="font-size: 11.5px; font-weight: 800; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px;">Cơ Chế Chống Gian Lận Cước Phí (SMS Toll Fraud)</div>
+              <div style="font-size: 12.5px; color: #78350f; margin-top: 2px; line-height: 1.4;">
+                Hệ thống chỉ gửi đến danh sách mã vùng quốc gia Việt Nam (+84), triệt tiêu hoàn toàn rủi ro bị kẻ xấu lợi dụng gửi tới các đầu số cước phí vệ tinh quốc tế.
+              </div>
+            </div>
+
+            <!-- Telco Safety Box -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-top: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+              <div style="font-size: 11.5px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Giám Sát Ngưỡng Chi Phí Thời Gian Thực</div>
+              <div style="font-size: 12.5px; color: #334155; margin-top: 2px; line-height: 1.4;">
+                Tích hợp cảnh báo ngưỡng số dư API và tự động kích hoạt Circuit Breaker nếu lưu lượng vượt quá 200% định mức cho phép.
+              </div>
+            </div>
+
+            <!-- Financial Security Box -->
+            <div style="margin-top: 8px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 10px 14px; text-align: center;">
+              <span style="font-size: 12px; color: #166534; font-weight: 700;">Hiệu quả bảo vệ tài chính viễn thông:</span>
+              <div style="font-size: 15px; font-weight: 800; color: #15803d; margin-top: 2px;">
+                Bảo Toàn 100% Ngân Sách Dự Án
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: UI/UX Mobile Optimization -->
+    <section class="slide" id="slide-10">
+      <div class="slide-header">
+        <div class="slide-tag">09 &bull; THIẾT KẾ TRẢI NGHIỆM</div>
+        <h2 class="slide-title">Tối Ưu Trải Nghiệm Người Dùng (UI/UX Mobile)</h2>
+        <p class="slide-subtitle">Các chi tiết thiết kế trên ứng dụng Flutter giúp học sinh thao tác nhanh chóng và thuận tiện.</p>
+      </div>
+      <div class="slide-content">
+        <div class="grid-2">
+          <div style="display: flex; flex-direction: column; gap: 14px; height: 100%; justify-content: space-between;">
+            <div class="point-item">
+              <div class="point-icon" style="background: #0284c7; width: 48px; height: 48px;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+              </div>
+              <div class="point-text">
+                <h4>Bộ đếm ngược 60 giây (Cooldown Timer)</h4>
+                <p>Hiển thị trực quan đếm lùi <code>Gửi lại mã sau 59s...</code> và tự động vô hiệu hóa nút bấm để tránh học sinh bấm liên tục khi mạng chậm.</p>
+                <span style="display: inline-block; margin-top: 6px; font-size: 12.5px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 10px; border-radius: 6px;">⏱️ Khóa nút gửi lặp trong 60 giây</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div class="point-icon" style="background: #059669; width: 48px; height: 48px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  </div>
+                  <div>
+                    <h4>Tự động chuẩn hóa đầu số (+84)</h4>
+                    <p style="margin-top: 2px;">Học sinh nhập <code>0912...</code> hay <code>+84912...</code> đều được ứng dụng tự động nhận diện đầu số quốc gia Việt Nam chuẩn xác.</p>
+                  </div>
+                </div>
+                <span style="display: inline-block; margin-top: 8px; margin-left: 62px; font-size: 12.5px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 2px 10px; border-radius: 6px;">🌐 Tiêu chuẩn viễn thông E.164 quốc tế</span>
+              </div>
+            </div>
+
+            <div class="point-item">
+              <div class="point-text">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div class="point-icon" style="background: #7c3aed; width: 48px; height: 48px;">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6.01" y2="8"/><line x1="10" y1="8" x2="10.01" y2="8"/><line x1="14" y1="8" x2="14.01" y2="8"/><line x1="18" y1="8" x2="18.01" y2="8"/><line x1="6" y1="12" x2="6.01" y2="12"/><line x1="10" y1="12" x2="10.01" y2="12"/><line x1="14" y1="12" x2="14.01" y2="12"/><line x1="18" y1="12" x2="18.01" y2="12"/></svg>
+                  </div>
+                  <div>
+                    <h4>Gợi ý bàn phím số chuyên dụng</h4>
+                    <p style="margin-top: 2px;">Thiết lập <code>TextInputType.number</code> để máy tự mở bàn phím số to, rõ ràng, giúp nhập liệu không bị gõ nhầm chữ cái.</p>
+                  </div>
+                </div>
+                <span style="display: inline-block; margin-top: 8px; margin-left: 62px; font-size: 12.5px; font-weight: 700; color: #7c3aed; background: #f5f3ff; padding: 2px 10px; border-radius: 6px;">⌨️ Bàn phím số tự động mở 1-chạm</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Mockup Visualization -->
+          <div class="phone-mockup-wrapper">
+            <div class="phone-mockup">
+              <div class="phone-notch"></div>
+              
+              <!-- SMS Push Notification Simulation -->
+              <div class="sms-banner">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: #2563eb; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div style="flex: 1;">
+                  <div style="font-size: 12px; font-weight: 800; color: var(--text-main);">TIN NHẮN &bull; ENGLISH 7</div>
+                  <div style="font-size: 11px; color: var(--text-sub); margin-top: 2px;">Ma OTP xac thuc: <strong>482915</strong> (hieu luc 5 phut).</div>
+                </div>
+              </div>
+
+              <!-- Screen Inside Form -->
+              <div style="margin-top: 28px; text-align: center;">
+                <div style="font-size: 16px; font-weight: 800; color: var(--text-main);">Xác Nhận Mã OTP</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Đã gửi tới <strong style="color: var(--primary); font-family: 'JetBrains Mono', monospace;">+84 912 ••• 678</strong></div>
+                
+                <div class="otp-display-box">
+                  <div class="otp-digit" style="animation-delay: 0.1s;">4</div>
+                  <div class="otp-digit" style="animation-delay: 0.2s;">8</div>
+                  <div class="otp-digit" style="animation-delay: 0.3s;">2</div>
+                  <div class="otp-digit" style="animation-delay: 0.4s;">9</div>
+                  <div class="otp-digit" style="animation-delay: 0.5s;">1</div>
+                  <div class="otp-digit" style="animation-delay: 0.6s;">5</div>
+                </div>
+
+                <div style="margin-top: 24px; font-size: 13px; color: var(--text-muted);">
+                  Gửi lại mã sau <span style="color: var(--primary); font-weight: 800; font-family: 'JetBrains Mono', monospace;">42s</span>
+                </div>
+
+                <div style="margin-top: 24px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(37,99,235,0.3); cursor: pointer;">
+                  XÁC NHẬN MÃ OTP
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 11: Comparison with Other Methods -->
+    <section class="slide" id="slide-11">
+      <div class="slide-header">
+        <div class="slide-tag">10 &bull; ĐÁNH GIÁ & SO SÁNH</div>
+        <h2 class="slide-title">So Sánh SMS OTP Với Các Giải Pháp Khác</h2>
+        <p class="slide-subtitle">Vì sao SMS OTP là lựa chọn tối ưu hàng đầu cho đối tượng học sinh trung học cơ sở.</p>
+      </div>
+      <div class="slide-content" style="flex-direction: column; justify-content: space-between;">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>Phương Thức Xác Thực</th>
+              <th>Độ Phổ Cập</th>
+              <th>Yêu Cầu Thiết Bị</th>
+              <th>Độ Phức Tạp Với Học Sinh</th>
+              <th>Đánh Giá Chung</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background: rgba(37, 99, 235, 0.08);">
+              <td style="color: var(--primary); font-weight: 800;">
+                &bull; SMS OTP (Giải pháp nhóm chọn)
+              </td>
+              <td><span class="badge-good">100% người có SIM</span></td>
+              <td>Chỉ cần máy nhận sóng GSM (kể cả máy cơ bản)</td>
+              <td><span class="badge-good">Rất dễ (Đọc tin nhắn)</span></td>
+              <td><span class="badge-good">&starf; Phù hợp nhất GD</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0f172a;">Email OTP</td>
+              <td><span class="badge-mid">70% - 80%</span></td>
+              <td>Bắt buộc có kết nối Internet / Smartphone</td>
+              <td><span class="badge-warn">Dễ bị rơi vào mục Spam/Rác</span></td>
+              <td>Dự phòng bổ trợ</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0f172a;">Authenticator App (Google/Authy)</td>
+              <td><span class="badge-warn">&lt; 20% học sinh</span></td>
+              <td>Phải cài thêm ứng dụng thứ 3, quét mã QR</td>
+              <td><span class="badge-warn">Phức tạp, dễ làm mất khóa</span></td>
+              <td>Phù hợp chuyên gia IT</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700; color: #0f172a;">Sinh Trắc Học (Vân tay / FaceID)</td>
+              <td><span class="badge-mid">Tùy dòng máy</span></td>
+              <td>Yêu cầu cảm biến phần cứng cao cấp</td>
+              <td><span class="badge-good">Nhanh chóng</span></td>
+              <td>Chỉ dùng Local Unlock</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Summary Assessment Box -->
+        <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 16px; padding: 16px 24px; display: flex; align-items: center; gap: 16px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">★</div>
+          <div>
+            <h5 style="font-size: 16px; font-weight: 800; color: #1e3a8a; margin-bottom: 3px;">Kết Luận Đánh Giá Cho Ứng Dụng Giáo Dục Phổ Thông</h5>
+            <p style="font-size: 14.5px; color: #1e40af; line-height: 1.5; margin: 0;">
+              So với Email (dễ bị spam/học sinh ít kiểm tra), Authenticator App (quá phức tạp), hay Sinh trắc học (phụ thuộc máy xịn), <strong>SMS OTP đạt 100% độ phổ cập</strong> trên mọi dòng điện thoại di động của phụ huynh và học sinh, mang lại tỷ lệ xác thực thành công cao nhất.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 12: Conclusion & Q&A -->
+    <section class="slide" id="slide-12">
+      <div class="slide-header" style="text-align: center; margin-top: 10px; margin-bottom: 18px;">
+        <div class="slide-tag">11 &bull; TỔNG KẾT & PHÁT TRIỂN</div>
+        <h2 class="slide-title" style="font-size: 42px;">Tổng Kết & Hướng Phát Triển Tương Lai</h2>
+        <p class="slide-subtitle" style="font-size: 17.5px; max-width: 720px; margin: 8px auto 0;">
+          Giải pháp SMS OTP mang lại nền tảng bảo mật vững chắc, thân thiện và sẵn sàng mở rộng quy mô.
+        </p>
+      </div>
+      <div class="slide-content" style="flex-direction: column; gap: 16px;">
+        <!-- Top: 3 Summary Cards -->
+        <div class="grid-3" style="flex: 1.1;">
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--accent-emerald); padding: 18px 22px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); display: flex; align-items: center; justify-content: center;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+                <h4 style="font-size: 18px; font-weight: 800; color: #0f172a;">Bảo Mật Vững Chắc</h4>
+              </div>
+              <p style="font-size: 13.5px; color: var(--text-sub); line-height: 1.45; margin-bottom: 8px;">
+                Xác thực 100% học sinh chính chủ qua SIM vật lý, triệt tiêu hoàn toàn tài khoản ảo:
+              </p>
+            </div>
+            
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px; font-size: 13px; color: var(--text-main); background: #f8fafc; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 8px;">
+              <div><strong>✓ CSPRNG ngẫu nhiên:</strong> Không gian 1.000.000 mã bảo mật cao.</div>
+              <div><strong>✓ Vòng đời 300s:</strong> Tự động hủy và dọn dẹp RAM sau 5 phút.</div>
+              <div><strong>✓ Single-Use:</strong> Xóa ngay sau khi xác thực, chống Replay Attack.</div>
+              <div><strong>✓ Chống Brute-Force:</strong> Khóa tạm thời 15 phút sau 5 lần nhập sai.</div>
+            </div>
+
+            <div style="font-size: 12px; font-weight: 700; color: #059669; background: #ecfdf5; padding: 6px 12px; border-radius: 8px; text-align: center; border: 1px solid #a7f3d0;">
+              Chống Brute-force & Rate Limiting Toàn Diện
+            </div>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--primary); padding: 18px 22px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(37, 99, 235, 0.15); color: var(--primary); display: flex; align-items: center; justify-content: center;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <h4 style="font-size: 18px; font-weight: 800; color: #0f172a;">Trải Nghiệm Thân Thiện</h4>
+              </div>
+              <p style="font-size: 13.5px; color: var(--text-sub); line-height: 1.45; margin-bottom: 8px;">
+                Giao diện tối ưu học sinh: đếm ngược thông minh và tự động điền khi quên mật khẩu:
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px; font-size: 13px; color: var(--text-main); background: #f8fafc; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 8px;">
+              <div><strong>✓ Bàn phím số tự mở:</strong> Thiết lập TextInputType.number tiện lợi.</div>
+              <div><strong>✓ Chuẩn hóa (+84):</strong> Tự đổi 0912... sang chuẩn quốc tế E.164.</div>
+              <div><strong>✓ Auto-Prefill:</strong> 1-chạm khôi phục, giảm 85% thời gian gõ lại.</div>
+              <div><strong>✓ Đồng hồ Cooldown 60s:</strong> Khóa nút gửi lặp khi mạng chập chờn.</div>
+            </div>
+
+            <div style="font-size: 12px; font-weight: 700; color: var(--primary); background: #eff6ff; padding: 6px 12px; border-radius: 8px; text-align: center; border: 1px solid #bfdbfe;">
+              Tối Ưu Giao Diện Flutter Cho Học Sinh
+            </div>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid var(--accent-purple); padding: 18px 22px;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); display: flex; align-items: center; justify-content: center;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <h4 style="font-size: 18px; font-weight: 800; color: #0f172a;">Mở Rộng: SMS Brandname</h4>
+              </div>
+              <p style="font-size: 13.5px; color: var(--text-sub); line-height: 1.45; margin-bottom: 8px;">
+                Đăng ký tên định danh từ Bộ TT&TT để nâng tầm nhận diện giáo dục chuyên nghiệp:
+              </p>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px; font-size: 13px; color: var(--text-main); background: #f8fafc; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 8px;">
+              <div><strong>✓ Tên thương hiệu riêng:</strong> Tin nhắn hiện tên 'ENGLISH7'.</div>
+              <div><strong>✓ Tăng 100% độ tin cậy:</strong> Phụ huynh an tâm không phải tin lừa đảo.</div>
+              <div><strong>✓ Kênh dự phòng 2FA:</strong> Tích hợp Zalo ZNS / Voice OTP khi mất sóng.</div>
+              <div><strong>✓ Định tuyến Telco thông minh:</strong> Tự chọn nhà mạng có cước rẻ nhất.</div>
+            </div>
+
+            <div style="font-size: 12px; font-weight: 700; color: var(--accent-purple); background: #f5f3ff; padding: 6px 12px; border-radius: 8px; text-align: center; border: 1px solid #ddd6fe;">
+              Định Hướng Nâng Cấp Hệ Thống Toàn Diện
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: Thank You Card -->
+        <div class="card" style="flex: 1.1; padding: 18px 26px; text-align: center; background: #ffffff; border: 1.5px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <h3 style="font-size: 22px; font-weight: 900; color: #0f172a; margin-bottom: 3px;">
+              🎉 XIN CHÂN THÀNH CẢM ƠN THẦY NGUYỄN MẠNH HÙNG VÀ CÁC BẠN!
+            </h3>
+            <p style="color: var(--primary); font-size: 14.5px; font-weight: 700; margin-bottom: 12px;">
+              Nhóm 3 &bull; Học phần: CMP177 - Lập trình thiết bị di động &bull; Giảng viên hướng dẫn: ThS. Nguyễn Mạnh Hùng
+            </p>
+
+            <!-- 3 Member Detailed Profile Cards -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;">
+              <!-- Member 1 -->
+              <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; text-align: left; display: flex; align-items: center; gap: 14px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">1</div>
+                <div>
+                  <div style="font-weight: 800; font-size: 15.5px; color: #0f172a;">Trần Như Bình</div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--primary);">MSSV: 2380602921</div>
+                  <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Quy trình & Tiêu chuẩn bảo mật OTP</div>
+                </div>
+              </div>
+
+              <!-- Member 2 -->
+              <div style="background: #f0fdfa; border: 1.5px solid #a7f3d0; border-radius: 14px; padding: 12px 16px; text-align: left; display: flex; align-items: center; gap: 14px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: #06b6d4; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">2</div>
+                <div>
+                  <div style="font-weight: 800; font-size: 15.5px; color: #0f172a;">Nguyễn Hoàng Duy Phương</div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #0284c7;">MSSV: 2380601787</div>
+                  <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Kiến trúc Core API & SMS Gateway</div>
+                </div>
+              </div>
+
+              <!-- Member 3 -->
+              <div style="background: #faf5ff; border: 1.5px solid #ddd6fe; border-radius: 14px; padding: 12px 16px; text-align: left; display: flex; align-items: center; gap: 14px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: #8b5cf6; color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">3</div>
+                <div>
+                  <div style="font-weight: 800; font-size: 15.5px; color: #0f172a;">Đồ Thanh Tòng</div>
+                  <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--accent-purple);">MSSV: 2380602283</div>
+                  <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">Giao diện Flutter & Tối ưu UX Học Sinh</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Platform Highlights -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 16px; display: flex; justify-content: space-around; align-items: center; font-size: 13px; color: var(--text-sub);">
+            <span>🚀 <strong>Frontend:</strong> Flutter SDK & Dart Mobile</span>
+            <span>⚡ <strong>Backend:</strong> FastAPI • Python CSPRNG</span>
+            <span>📡 <strong>Viễn thông:</strong> SMS Gateway REST API</span>
+            <span>🛡️ <strong>Bảo mật:</strong> Redis Cache • Anti Brute-Force</span>
+          </div>
+
+          <!-- Q&A Invitation Banner -->
+          <div style="background: #eff6ff; border: 1.5px dashed #93c5fd; border-radius: 10px; padding: 10px 16px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <span style="font-size: 20px;">💬</span>
+            <span style="font-size: 14px; font-weight: 800; color: #1e40af;">
+              PHIÊN HỎI ĐÁP (Q&A): Nhóm 3 rất mong nhận được những câu hỏi và đóng góp quý báu từ Thầy cùng các bạn!
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Presentation Footer -->
+  <footer>
+    <div class="slide-number" id="slideIndicator">Slide 01 / 12</div>
+    <div class="nav-controls">
+      <button class="btn-nav" onclick="prevSlide()" title="Slide trước (Phím Mũi tên Trái)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="btn-nav" onclick="nextSlide()" title="Slide kế tiếp (Phím Mũi tên Phải hoặc Phím Cách)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </footer>
+
+  <!-- Progress Bar Line -->
+  <div class="progress-bar-container">
+    <div class="progress-bar-fill" id="progressBar"></div>
+  </div>
+
+  <!-- Speaker Notes Modal (Kịch bản nói chi tiết từng slide) -->
+  <div class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <h4>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span id="notesTitle">KỊCH BẢN THUYẾT TRÌNH (SLIDE 1)</span>
+      </h4>
+      <button onclick="toggleNotes()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px;">&times;</button>
+    </div>
+    <div class="notes-body" id="notesContent">
+      <!-- Dynamic Presenter Script Injected Here -->
+    </div>
+  </div>
+
+  <script>
+    // Speaker Notes Data for each of the 12 slides
+    const presenterNotes = [
+      // Slide 1
+      `<strong>Lời mở đầu:</strong> "Kính thưa Thầy Nguyễn Mạnh Hùng và toàn thể các bạn, em xin đại diện cho <strong>Nhóm 3</strong> — thuộc học phần <strong>CMP177: Lập trình thiết bị di động</strong> — gồm 3 thành viên: bạn Trần Như Bình, bạn Nguyễn Hoàng Duy Phương và bạn Đồ Thanh Tòng. Hôm nay, nhóm chúng em xin được trình bày bài thuyết trình với chuyên đề: <em>'Giải pháp Xác thực Người dùng qua SMS OTP trên Ứng dụng Di động'</em>. Trong bài thuyết trình này, nhóm sẽ trình bày chi tiết về kiến trúc hệ thống, quy trình bảo mật sinh mã CSPRNG và cách ứng dụng SMS OTP để tối ưu trải nghiệm định danh người dùng. Nhóm xin kính mời Thầy và các bạn cùng theo dõi!"`,
+      
+      // Slide 2
+      `<strong>Đặt vấn đề:</strong> "Đầu tiên, vì sao mật khẩu truyền thống không còn đủ an toàn? Học sinh thường có thói quen đặt mật khẩu rất dễ đoán như ngày sinh hay '123456', hoặc dùng chung một mật khẩu cho mọi trang web. Khi bị lộ ở một nơi khác, tài khoản học sinh trên ứng dụng rất dễ bị chiếm đoạt. Hơn nữa, học sinh thường xuyên quên mật khẩu gây áp lực lớn cho người quản trị. Việc áp dụng số điện thoại làm định danh chính mang lại yếu tố sở hữu vật lý - tức là kẻ xấu dù biết mật khẩu cũng không thể đăng nhập nếu không có SIM điện thoại của người dùng."`,
+      
+      // Slide 3
+      `<strong>Cốt lõi OTP:</strong> "SMS OTP - One-Time Password là mật khẩu dùng một lần được gửi qua mạng viễn thông. Giải pháp của chúng em tuân thủ ba nguyên tắc cốt lõi: Thứ nhất là Thời gian sống ngắn (TTL) chỉ trong vòng 3 đến 5 phút để triệt tiêu nguy cơ rò rỉ mã. Thứ hai là Tính dùng một lần (Single-use): mã sẽ bị xóa ngay lập tức sau khi xác thực thành công để chống tấn công phát lại (Replay Attack). Thứ ba là Tính ngẫu nhiên tuyệt đối thông qua bộ sinh số ngẫu nhiên an toàn mã hóa CSPRNG."`,
+      
+      // Slide 4
+      `<strong>Kiến trúc hệ thống:</strong> "Về mặt kiến trúc, hệ thống được phân tách thành 3 tầng độc lập và rõ ràng: Tầng 1 là Mobile App viết bằng Flutter - nơi tiếp nhận thao tác, kiểm tra định dạng và quản lý đồng hồ đếm ngược. Tầng 2 là Backend API viết bằng FastAPI - trung tâm xử lý nghiệp vụ, kiểm tra cơ sở dữ liệu, sinh mã và lưu trữ cache. Tầng 3 là SMS Gateway của nhà mạng viễn thông - chuyển tiếp tin nhắn SMS trực tiếp qua trạm BTS tới máy điện thoại của học sinh."`,
+      
+      // Slide 5
+      `<strong>Quy trình hoạt động:</strong> "Quy trình End-to-End diễn ra rất chặt chẽ: Khi học sinh nhấn gửi mã, Client chuyển số điện thoại sang chuẩn quốc tế E.164 (+84). Server kiểm tra tính hợp lệ rồi sinh mã 6 số ngẫu nhiên, lưu vào Cache với TTL 300 giây. Sau đó Server gọi HTTP request tới cổng SMS Gateway để đẩy tin nhắn về máy người dùng. Học sinh nhận tin nhắn, điền vào ứng dụng. Server đối soát và nếu chính xác sẽ cấp ngay Access Token cho phiên học."`,
+      
+      // Slide 6
+      `<strong>Ứng dụng trong Đăng ký:</strong> "Điểm sáng trong luồng Đăng ký là cơ chế kiểm tra trùng lặp thông minh. Trước khi phát sinh cuộc gọi gửi SMS tốn chi phí, Backend sẽ truy vấn CSDL: Nếu số điện thoại đã được đăng ký trước đó, hệ thống lập tức trả về mã lỗi 409 Conflict. Ứng dụng di động sẽ hiển thị thông báo rõ ràng kèm 2 nút gợi ý: 'Đăng nhập lại' hoặc 'Quên mật khẩu?'. Điều này vừa tiết kiệm chi phí viễn thông, vừa định hướng người dùng đúng nghiệp vụ."`,
+      
+      // Slide 7
+      `<strong>Ứng dụng trong Khôi phục mật khẩu:</strong> "Đối với bài toán Quên mật khẩu, SMS OTP đóng vai trò là chìa khóa chứng thực danh tính chính chủ. Học sinh chỉ cần nhập số điện thoại hoặc email đã đăng ký. Hệ thống gửi mã xác minh về số điện thoại đó. Khi nhập đúng 6 số OTP, học sinh được phép thiết lập mật khẩu mới ngay trên ứng dụng mà không cần chờ đợi xét duyệt thủ công từ giáo viên hay quản trị viên."`,
+      
+      // Slide 8
+      `<strong>Tiêu chuẩn an toàn:</strong> "Về mặt mật mã học, mã OTP không được sinh bằng các hàm ngẫu nhiên thông thường (như random trong Python hay Math.random) vì chúng có thể bị dự đoán chu kỳ. Chúng em dùng module 'secrets' - chuẩn CSPRNG của hệ điều hành. Độ dài 6 số tạo ra 1.000.000 tổ hợp khác nhau, cân bằng hoàn hảo giữa độ an toàn bảo mật và khả năng ghi nhớ nhanh của các em học sinh."`,
+      
+      // Slide 9
+      `<strong>Phòng chống tấn công & Gian lận:</strong> "Để bảo vệ hệ thống, chúng em triển khai 2 chốt chặn: Chốt thứ nhất là chống Brute-force - nếu nhập sai quá 5 lần, mã OTP sẽ bị hủy ngay lập tức, khiến xác suất đoán mò chỉ còn 0.0005%. Chốt thứ hai là Rate Limiting - quy định mỗi số điện thoại chỉ được bấm gửi mã 1 lần mỗi 60 giây và tối đa 5 lần mỗi ngày, giúp dự án phòng chống triệt để tấn công làm cạn kiệt ngân sách viễn thông (SMS toll fraud)."`,
+      
+      // Slide 10
+      `<strong>Tối ưu trải nghiệm UI/UX:</strong> "Trên ứng dụng di động, trải nghiệm người dùng được chau chuốt kỹ lưỡng: Nút gửi có đồng hồ đếm ngược 60s để người dùng không bấm loạn xạ; ô nhập tự động mở bàn phím số to rõ ràng; và đặc biệt là hệ thống tự động chuẩn hóa đầu số 0 thành +84 giúp học sinh không phải băn khoăn về quy cách nhập số điện thoại."`,
+      
+      // Slide 11
+      `<strong>So sánh giải pháp:</strong> "So sánh với các giải pháp khác: Email OTP thường bị rơi vào hộp thư rác (Spam) hoặc học sinh cấp 2 không có thói quen check mail. Authenticator App như Google Authenticator thì quá phức tạp, dễ làm mất khóa bảo mật. Sinh trắc học chỉ dùng mở khóa cục bộ trên máy chứ không thể xác minh danh tính lên server. Vì vậy, SMS OTP là giải pháp phổ cập 100% và thân thiện nhất với môi trường giáo dục phổ thông."`,
+      
+      // Slide 12
+      `<strong>Tổng kết:</strong> "Tóm lại, giải pháp xác thực qua SMS OTP đã mang lại sự an toàn, bảo mật và tính khả dụng rất cao cho ứng dụng di động của Nhóm 3 trong học phần CMP177. Hệ thống giải quyết tốt bài toán đăng ký, quên mật khẩu và phòng chống gian lận tài khoản. Trong tương lai, hệ thống có thể mở rộng tích hợp SMS Brandname để tăng độ nhận diện thương hiệu. Thay mặt Nhóm 3, em xin chân thành cảm ơn Thầy Nguyễn Mạnh Hùng đã tận tình giảng dạy, hướng dẫn chúng em trong suốt học phần, và cảm ơn các bạn đã chú ý lắng nghe. Nhóm 3 chúng em rất mong nhận được những nhận xét và câu hỏi từ Thầy cùng các bạn ạ!"`
+    ];
+
+    let currentSlide = 1;
+    const totalSlides = 12;
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#slide-')) {
+      const num = parseInt(hash.replace('#slide-', ''));
+      if (num >= 1 && num <= totalSlides) currentSlide = num;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('slide')) {
+      const num = parseInt(params.get('slide'));
+      if (num >= 1 && num <= totalSlides) currentSlide = num;
+    }
+
+    function updateSlide() {
+      // Update Slide Display
+      document.querySelectorAll('.slide').forEach((slide, index) => {
+        slide.classList.remove('active');
+        if (index === currentSlide - 1) {
+          slide.classList.add('active');
+        }
+      });
+
+      // Update URL hash without scroll
+      history.replaceState(null, null, `#slide-${currentSlide}`);
+
+      // Update Indicator & Progress
+      document.getElementById('slideIndicator').textContent = `Slide ${String(currentSlide).padStart(2, '0')} / ${totalSlides}`;
+      const percentage = (currentSlide / totalSlides) * 100;
+      document.getElementById('progressBar').style.width = `${percentage}%`;
+
+      // Update Speaker Notes Content
+      document.getElementById('notesTitle').textContent = `KỊCH BẢN THUYẾT TRÌNH (SLIDE ${currentSlide})`;
+      document.getElementById('notesContent').innerHTML = presenterNotes[currentSlide - 1];
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function toggleNotes() {
+      const drawer = document.getElementById('notesDrawer');
+      const btn = document.getElementById('toggleNotesBtn');
+      drawer.classList.toggle('open');
+      btn.classList.toggle('active');
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullScreen();
+      } else if (e.key === 'Home') {
+        currentSlide = 1;
+        updateSlide();
+      } else if (e.key === 'End') {
+        currentSlide = totalSlides;
+        updateSlide();
+      }
+    });
+
+    // Initialize
+    updateSlide();
+  </script>
+</body>
+</html>

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../app/student_api.dart';
+import 'forgot_password_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final StudentApi api;
@@ -70,7 +72,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   key: const Key('email-field'),
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email'),
+                  decoration: const InputDecoration(
+                    labelText: 'Email hoặc Số điện thoại',
+                    hintText: 'student@english7.edu.vn hoặc 0374...',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -79,8 +84,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: true,
                   decoration: const InputDecoration(labelText: 'Mật khẩu'),
                 ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    key: const Key('forgot-password-btn'),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ForgotPasswordScreen(api: widget.api),
+                        ),
+                      );
+                    },
+                    child: const Text('Quên mật khẩu?'),
+                  ),
+                ),
                 if (_error != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Text(
                     _error!,
                     style: TextStyle(
@@ -88,9 +107,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
                 FilledButton(
                   onPressed: _busy ? null : _login,
                   child: Text(_busy ? 'Đang đăng nhập…' : 'Đăng nhập'),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('Chưa có tài khoản?'),
+                    TextButton(
+                      key: const Key('open-register-btn'),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => RegisterScreen(
+                              api: widget.api,
+                              onAuthenticated: widget.onAuthenticated,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Đăng ký ngay'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextButton.icon(

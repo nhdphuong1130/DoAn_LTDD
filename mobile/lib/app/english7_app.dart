@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/auth/login_screen.dart';
+import '../features/flashcards/learning_screen.dart';
 import '../features/lessons/lesson_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/progress/progress_screen.dart';
@@ -150,11 +151,14 @@ class _StudentShellState extends State<StudentShell> {
       LessonScreen(api: widget.api),
       TutorScreen(api: widget.api, imageSelector: widget.imageSelector),
       QuizScreen(api: widget.api),
-      const ProgressScreen(),
+      ProgressScreen(api: widget.api, active: _index == 3),
       ProfileScreen(api: widget.api, onLogout: widget.onLogout),
+      LearningScreen(api: widget.api),
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text('English 7 Global Success')),
+      appBar: _index == 5
+          ? null
+          : AppBar(title: const Text('English 7 Global Success')),
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -180,6 +184,10 @@ class _StudentShellState extends State<StudentShell> {
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Cá nhân',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.style_outlined),
+            label: 'Luyện tập',
           ),
         ],
       ),

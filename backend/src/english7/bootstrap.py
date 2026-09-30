@@ -475,7 +475,7 @@ def configure_runtime(
     if settings.embedding_dimensions == 384 or not key_str or "replace" in key_str.lower():
         from english7.modules.knowledge.fastembed_service import FastEmbedService
 
-        embedder = FastEmbedService()
+        embedder = FastEmbedService(cache_dir=settings.embedding_cache_dir)
     else:
         embedder = OpenRouterEmbedder(
             http=http,

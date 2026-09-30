@@ -8,7 +8,7 @@ import 'app/english7_app.dart';
 import 'config/app_config.dart';
 import 'features/tutor/image_selector.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final config = AppConfig.fromDartDefine();
   const tokens = SecureTokenStore();

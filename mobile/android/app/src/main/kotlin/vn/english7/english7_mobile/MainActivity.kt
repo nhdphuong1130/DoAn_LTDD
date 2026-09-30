@@ -7,6 +7,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var speechChannel: SpeechRecorderChannel? = null
     private val CHANNEL = "vn.english7/audio_player"
     private var mediaPlayer: MediaPlayer? = null
     private var currentUrl: String? = null
@@ -14,6 +15,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        speechChannel = SpeechRecorderChannel(this, flutterEngine.dartExecutor.binaryMessenger)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -105,8 +107,19 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        speechChannel?.dispose()
         mediaPlayer?.release()
         mediaPlayer = null
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        if (speechChannel?.permissionResult(requestCode, grantResults) == true) return
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    }
+
+    override fun onPause() {
+        speechChannel?.stopCapture()
+        super.onPause()
     }
 }

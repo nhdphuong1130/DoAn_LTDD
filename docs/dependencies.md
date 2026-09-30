@@ -1,6 +1,4 @@
 <!--
-SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
-SPDX-License-Identifier: Apache-2.0
 -->
 
 # Dependencies Inventory
@@ -41,7 +39,43 @@ Managed via `pubspec.yaml` in `mobile/`.
 | `audioplayers` | `^6.1.0` | MIT | Low-latency audio playback for listening tracks |
 | `flutter_test` | SDK | BSD-3-Clause | Unit and widget test framework |
 
+## Optional speech runtime (CPU, isolated from backend/OCR)
+
+Direct versions are pinned in `speech/requirements.txt`. Installed by
+`make speech-setup`; `bash scripts/setup_speech.sh --deps-only` installs only the
+test/runtime libraries. No additional Flutter package: Android `AudioRecord`
+captures mono PCM WAV through a platform channel; `MediaPlayer` plays audio.
+
+| Dependency | Version | License | Purpose |
+|---|---|---|---|
+| `vieneu` | 3.8.3 | Apache-2.0 | Vietnamese preset-voice feedback, ONNX CPU backend |
+| `faster-whisper` | 1.2.1 | MIT | Local English speech recognition |
+| `fastapi` / `uvicorn` | 0.135.1 / 0.42.0 | MIT / BSD-3-Clause | Private HTTP runtime |
+| `python-multipart` | 0.0.22 | Apache-2.0 | Bounded recording uploads |
+| `numpy` | 2.3.5 | BSD-3-Clause plus bundled notices | Audio arrays |
+| `soundfile` | 0.13.1 | BSD-3-Clause; bundled libsndfile LGPL | WAV encoding |
+| `pytest` / `httpx` | 8.4.2 / 0.28.1 | MIT / BSD-3-Clause | Runtime tests |
+
+Key transitives verified in the installed environment: `onnxruntime` 1.30.0
+(MIT), `ctranslate2` 4.8.2 (MIT), `sea-g2p` 0.10.0 (Apache-2.0), and
+`huggingface-hub` 1.33.0 (Apache-2.0). Preserve upstream bundled dependency notices
+when redistributing binaries. Model weights are cached locally, never committed:
+
+- `Systran/faster-whisper-base.en`: MIT.
+- `pnnbao-ump/VieNeu-TTS-v3-Turbo`: Apache-2.0, including bundled presets per model card.
+- `OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX`: Apache-2.0.
+
+Models and first-run phonemizer assets require an Internet download; normal
+inference uses local cache. CPU/RAM/electricity costs still apply, despite no
+paid API requirement. See [speech runtime](speech-runtime.md) for reproducibility
+and model provenance. VieNeu is used for Vietnamese feedback, not an unverified
+English pronunciation reference.
+
 ## Infrastructure & Services
+
+The local launcher (`make run`) requires Bash, Python 3 (standard-library JSON
+parsing and launcher tests), Flutter, and Docker Compose v2 with `up --wait` and
+`--wait-timeout` support. It does not install additional Python packages.
 
 Managed via Docker Compose (`infra/docker/compose.yaml`).
 

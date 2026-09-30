@@ -4,8 +4,32 @@ import 'dart:typed_data';
 import '../api/api_client.dart';
 import '../api/api_error.dart';
 import 'student_api.dart';
+import 'api_learning.dart';
 
-class ApiStudentApi implements StudentApi {
+class ApiStudentApi with ApiLearning implements StudentApi {
+  @override
+  ApiClient get learningClient => _client;
+  @override
+  Future<StudentProgress> loadProgress() async {
+    final response = await _client.getJson('/api/v1/quizzes/progress');
+    final body = response.body;
+    return StudentProgress(
+      body['completed_quizzes'] as int,
+      body['correct'] as int,
+      body['total'] as int,
+      (body['history'] as List)
+          .map(
+            (item) => QuizHistoryItem(
+              item['quiz_id'] as String,
+              DateTime.parse(item['submitted_at'] as String),
+              item['correct'] as int,
+              item['total'] as int,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
   final ApiClient _client;
   final TokenStore _tokens;
 
@@ -36,6 +60,73 @@ class ApiStudentApi implements StudentApi {
       );
     }
     await _tokens.write(token);
+  }
+
+  @override
+  Future<void> sendOtp(
+    String phone, {
+    String channel = 'sms',
+    String purpose = 'login',
+  }) async {
+    await _client.postJson('/api/v1/auth/otp/send', {
+      'phone': phone,
+      'channel': channel,
+      'purpose': purpose,
+    });
+  }
+
+  @override
+  Future<void> verifyOtp(String phone, String otp) async {
+    final response = await _client.postJson('/api/v1/auth/otp/verify', {
+      'phone': phone,
+      'otp': otp,
+    });
+    final token = response.body['access_token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const ApiException(
+        code: 'invalid_otp_response',
+        message: 'OTP verification response did not include an access token',
+        statusCode: 502,
+      );
+    }
+    await _tokens.write(token);
+  }
+
+  @override
+  Future<void> registerPhone({
+    required String phone,
+    required String otp,
+    required String password,
+  }) async {
+    final response = await _client.postJson('/api/v1/auth/register-phone', {
+      'phone': phone,
+      'otp': otp,
+      'password': password,
+    });
+    final token = response.body['access_token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const ApiException(
+        code: 'invalid_register_response',
+        message: 'Register response did not include an access token',
+        statusCode: 502,
+      );
+    }
+    await _tokens.write(token);
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String phone,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    await _client.postJson('/api/v1/auth/reset-password', {
+      'phone': phone,
+      'otp': otp,
+      'new_password': newPassword,
+      'confirm_password': confirmPassword,
+    });
   }
 
   @override
@@ -165,51 +256,61 @@ class ApiStudentApi implements StudentApi {
     final response = await _client.getJson('/api/v1/lessons/$unitId/structure');
     final body = response.body;
     final sectionsRaw = body['sections'] as List<dynamic>? ?? const [];
-    final sections = sectionsRaw.map((sRaw) {
-      final s = sRaw as Map<String, dynamic>;
-      final activitiesRaw = s['activities'] as List<dynamic>? ?? const [];
-      final activities = activitiesRaw.map((aRaw) {
-        final a = aRaw as Map<String, dynamic>;
-        final fragmentsRaw = a['fragments'] as List<dynamic>? ?? const [];
-        final fragments = fragmentsRaw.map((fRaw) {
-          final f = fRaw as Map<String, dynamic>;
-          return LessonFragment(
-            id: f['id'] as String? ?? '',
-            printedPage: f['printed_page'] as int?,
-            pdfPage: f['pdf_page'] as int? ?? 0,
-            text: f['normalized_text'] as String? ?? '',
-            sectionTitle: s['title'] as String?,
-            activityNumber: a['number'] as String?,
-            activityType: a['activity_type'] as String?,
-            activityInstruction: a['instruction'] as String?,
+    final sections = sectionsRaw
+        .map((sRaw) {
+          final s = sRaw as Map<String, dynamic>;
+          final activitiesRaw = s['activities'] as List<dynamic>? ?? const [];
+          final activities = activitiesRaw
+              .map((aRaw) {
+                final a = aRaw as Map<String, dynamic>;
+                final fragmentsRaw =
+                    a['fragments'] as List<dynamic>? ?? const [];
+                final fragments = fragmentsRaw
+                    .map((fRaw) {
+                      final f = fRaw as Map<String, dynamic>;
+                      return LessonFragment(
+                        id: f['id'] as String? ?? '',
+                        printedPage: f['printed_page'] as int?,
+                        pdfPage: f['pdf_page'] as int? ?? 0,
+                        text: f['normalized_text'] as String? ?? '',
+                        sectionTitle: s['title'] as String?,
+                        activityNumber: a['number'] as String?,
+                        activityType: a['activity_type'] as String?,
+                        activityInstruction: a['instruction'] as String?,
+                      );
+                    })
+                    .toList(growable: false);
+                final audioTracksRaw =
+                    a['audio_tracks'] as List<dynamic>? ?? const [];
+                final audioTracks = audioTracksRaw
+                    .map((tRaw) {
+                      final t = tRaw as Map<String, dynamic>;
+                      return LessonAudioTrack(
+                        id: t['id'] as String? ?? '',
+                        trackNumber: t['track_number'] as int? ?? 0,
+                        audioUrl: t['audio_url'] as String? ?? '',
+                      );
+                    })
+                    .toList(growable: false);
+                return LessonActivity(
+                  id: a['id'] as String? ?? '',
+                  number: a['number'] as String?,
+                  activityType: a['activity_type'] as String? ?? 'general',
+                  instruction: a['instruction'] as String?,
+                  audioTracks: audioTracks,
+                  fragments: fragments,
+                );
+              })
+              .toList(growable: false);
+          return LessonSection(
+            id: s['id'] as String? ?? '',
+            title: s['title'] as String? ?? '',
+            sectionType: s['section_type'] as String? ?? 'lesson',
+            position: s['position'] as int? ?? 0,
+            activities: activities,
           );
-        }).toList(growable: false);
-        final audioTracksRaw = a['audio_tracks'] as List<dynamic>? ?? const [];
-        final audioTracks = audioTracksRaw.map((tRaw) {
-          final t = tRaw as Map<String, dynamic>;
-          return LessonAudioTrack(
-            id: t['id'] as String? ?? '',
-            trackNumber: t['track_number'] as int? ?? 0,
-            audioUrl: t['audio_url'] as String? ?? '',
-          );
-        }).toList(growable: false);
-        return LessonActivity(
-          id: a['id'] as String? ?? '',
-          number: a['number'] as String?,
-          activityType: a['activity_type'] as String? ?? 'general',
-          instruction: a['instruction'] as String?,
-          audioTracks: audioTracks,
-          fragments: fragments,
-        );
-      }).toList(growable: false);
-      return LessonSection(
-        id: s['id'] as String? ?? '',
-        title: s['title'] as String? ?? '',
-        sectionType: s['section_type'] as String? ?? 'lesson',
-        position: s['position'] as int? ?? 0,
-        activities: activities,
-      );
-    }).toList(growable: false);
+        })
+        .toList(growable: false);
 
     return LessonDetail(
       id: body['id'] as String? ?? unitId,
@@ -308,20 +409,21 @@ class ApiStudentApi implements StudentApi {
       'difficulty': setup.difficulty,
       'mode': setup.mode,
     });
-    final questionsList = (response.body['questions'] as List<dynamic>? ?? const [])
-        .map((raw) {
-          final item = raw as Map<String, dynamic>;
-          final rawOptions = item['options'] as List<dynamic>?;
-          final options = rawOptions != null
-              ? rawOptions.map((e) => e.toString()).toList(growable: false)
-              : const ['True', 'False', 'Not given'];
-          return QuizQuestion(
-            item['id'] as String,
-            item['prompt'] as String,
-            options: options,
-          );
-        })
-        .toList(growable: false);
+    final questionsList =
+        (response.body['questions'] as List<dynamic>? ?? const [])
+            .map((raw) {
+              final item = raw as Map<String, dynamic>;
+              final rawOptions = item['options'] as List<dynamic>?;
+              final options = rawOptions != null
+                  ? rawOptions.map((e) => e.toString()).toList(growable: false)
+                  : const ['True', 'False', 'Not given'];
+              return QuizQuestion(
+                item['id'] as String,
+                item['prompt'] as String,
+                options: options,
+              );
+            })
+            .toList(growable: false);
     return QuizSession(
       response.body['id'] as String,
       response.body['duration_minutes'] as int,
@@ -333,11 +435,13 @@ class ApiStudentApi implements StudentApi {
   }
 
   @override
-  Future<QuizResult> submitQuiz(String quizId, [Map<String, String>? answers]) async {
-    final response = await _client.postJson(
-      '/api/v1/quizzes/$quizId/submit',
-      {'answers': answers ?? const {}},
-    );
+  Future<QuizResult> submitQuiz(
+    String quizId, [
+    Map<String, String>? answers,
+  ]) async {
+    final response = await _client.postJson('/api/v1/quizzes/$quizId/submit', {
+      'answers': answers ?? const {},
+    });
     return QuizResult(
       response.body['correct'] as int,
       response.body['total'] as int,

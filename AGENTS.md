@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2026 English 7 Grounded Learning Platform contributors
-SPDX-License-Identifier: Apache-2.0
--->
-
 # Agent Instructions
 
 These instructions apply to AI coding assistants and autonomous agents working in this repository.
@@ -25,11 +20,9 @@ The **English 7 Grounded Learning Platform** is an educational AI system grounde
   - `features/`: Feature-first modular Flutter code (`auth`, `lessons`, `quizzes`, `tutor`, `profile`, `progress`).
   - `shared/` & `widgets/`: Shared UI components, theme tokens, and audio players.
 
-## Open-Source Readiness (OLP Standard)
+## Development & Code Quality
 
-- Maintain Apache-2.0 licensing and SPDX headers across all new code and documentation.
 - Keep build, test, and check commands runnable completely from source via the root `Makefile`.
-- Document all new dependencies in `docs/dependencies.md`.
 - Never commit secrets, real API keys, credentials, or `.env` files.
 - Always run `make test` and `make analyze` before finalizing work.
 

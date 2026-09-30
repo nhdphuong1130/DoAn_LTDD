@@ -11,6 +11,8 @@ from english7.db.session import get_session_factory
 from english7.modules.auth.domain import AuthUser
 from english7.modules.auth.router import get_current_user
 from english7.modules.quizzes.service import QuizService
+from english7.modules.attempts.progress import ProgressService, AttemptResult
+from english7.modules.attempts.progress_repository import SQLAlchemyProgressRepository
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
@@ -40,6 +42,31 @@ class QuizResponse(BaseModel):
 class QuizSubmitResponse(BaseModel):
     correct: int
     total: int
+
+
+class ProgressResponse(BaseModel):
+    completed_quizzes: int
+    correct: int
+    total: int
+    history: list[AttemptResult]
+
+
+def require_student(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
+    if user.role != 'student':
+        raise ApplicationError('forbidden', 'Student role is required', 403)
+    return user
+
+
+def get_progress_service() -> ProgressService:
+    return ProgressService(SQLAlchemyProgressRepository(get_session_factory()))
+
+
+@router.get('/progress', response_model=ProgressResponse)
+def student_progress(
+    user: Annotated[AuthUser, Depends(require_student)],
+    service: Annotated[ProgressService, Depends(get_progress_service)],
+) -> dict:
+    return service.progress(user.id)
 
 
 class QuizOptionsResponse(BaseModel):
@@ -129,30 +156,9 @@ class SubmitQuizRequest(BaseModel):
 @router.post("/{quiz_id}/submit", response_model=QuizSubmitResponse)
 def submit_quiz(
     quiz_id: UUID,
-    _user: Annotated[AuthUser, Depends(get_current_user)],
+    user: Annotated[AuthUser, Depends(require_student)],
+    service: Annotated[ProgressService, Depends(get_progress_service)],
     payload: SubmitQuizRequest | None = None,
 ) -> QuizSubmitResponse:
-    total = 0
-    correct = 0
-    answers = payload.answers if payload is not None else {}
-    try:
-        with get_session_factory()() as session:
-            db_questions = session.scalars(
-                select(QuizQuestion).where(QuizQuestion.quiz_id == quiz_id)
-            ).all()
-            if db_questions:
-                total = len(db_questions)
-                for q in db_questions:
-                    user_ans = answers.get(str(q.id))
-                    expected = (q.answer_payload or {}).get("correct")
-                    if (
-                        user_ans
-                        and expected
-                        and user_ans.strip().lower() == expected.strip().lower()
-                    ):
-                        correct += 1
-            else:
-                total = 10
-    except Exception:
-        total = 10
-    return QuizSubmitResponse(correct=correct, total=total)
+    result = service.submit(user.id, quiz_id, payload.answers if payload else {})
+    return QuizSubmitResponse(correct=result.correct, total=result.total)

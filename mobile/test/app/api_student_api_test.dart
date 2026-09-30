@@ -62,6 +62,31 @@ void main() {
         delay: (_) async {},
       );
 
+  test('loads persisted progress with UTC submission dates', () async {
+    final transport = ScriptedTransport()
+      ..responses.add(
+        jsonResponse(200, {
+          'completed_quizzes': 1,
+          'correct': 3,
+          'total': 4,
+          'history': [
+            {
+              'quiz_id': 'quiz-1',
+              'submitted_at': '2026-09-25T07:00:00Z',
+              'correct': 3,
+              'total': 4,
+            },
+          ],
+        }),
+      );
+    final result = await buildApi(transport, MemoryTokens()).loadProgress();
+    expect(transport.requests.single.uri.path, '/api/v1/quizzes/progress');
+    expect(result.completedQuizzes, 1);
+    expect(result.correct, 3);
+    expect(result.history.single.submittedAt.isUtc, isTrue);
+    expect(result.history.single.total, 4);
+  });
+
   test('uploads, polls until ready, then submits upload id to tutor', () async {
     final transport = ScriptedTransport()
       ..responses.addAll([
@@ -248,9 +273,10 @@ void main() {
         }),
       );
 
-    final session = await buildApi(transport, MemoryTokens()).createQuiz(
-      const QuizSetup(15, 'adaptive', 'listening'),
-    );
+    final session = await buildApi(
+      transport,
+      MemoryTokens(),
+    ).createQuiz(const QuizSetup(15, 'adaptive', 'listening'));
 
     final payload = jsonDecode(
       utf8.decode(transport.requests.single.body!),
@@ -261,5 +287,58 @@ void main() {
     expect(session.audioUrl, '/api/v1/media/audio/37');
     expect(session.audioTitle, 'Unit 5 Skills 2 (Track 37)');
   });
-}
 
+  test('sendOtp sends phone number and channel to /api/v1/auth/otp/send', () async {
+    final transport = ScriptedTransport()
+      ..responses.addAll([
+        jsonResponse(200, {
+          'status': 'success',
+          'message': 'OTP sent via SMS',
+        }),
+        jsonResponse(200, {
+          'status': 'success',
+          'message': 'OTP sent via Voice',
+        }),
+      ]);
+
+    final api = buildApi(transport, MemoryTokens());
+    await api.sendOtp('+84365218732');
+    await api.sendOtp('+84365218732', channel: 'voice');
+
+    expect(transport.requests.length, 2);
+    expect(transport.requests[0].uri.path, '/api/v1/auth/otp/send');
+    final payload1 = jsonDecode(
+      utf8.decode(transport.requests[0].body!),
+    ) as Map<String, dynamic>;
+    expect(payload1['phone'], '+84365218732');
+    expect(payload1['channel'], 'sms');
+
+    expect(transport.requests[1].uri.path, '/api/v1/auth/otp/send');
+    final payload2 = jsonDecode(
+      utf8.decode(transport.requests[1].body!),
+    ) as Map<String, dynamic>;
+    expect(payload2['phone'], '+84365218732');
+    expect(payload2['channel'], 'voice');
+  });
+
+  test('verifyOtp sends phone and otp, then saves access token', () async {
+    final transport = ScriptedTransport()
+      ..responses.add(
+        jsonResponse(200, {
+          'access_token': 'test-otp-token',
+          'token_type': 'bearer',
+        }),
+      );
+    final tokens = MemoryTokens();
+
+    await buildApi(transport, tokens).verifyOtp('+84365218732', '123456');
+
+    expect(transport.requests.single.uri.path, '/api/v1/auth/otp/verify');
+    final payload = jsonDecode(
+      utf8.decode(transport.requests.single.body!),
+    ) as Map<String, dynamic>;
+    expect(payload['phone'], '+84365218732');
+    expect(payload['otp'], '123456');
+    expect(tokens.token, 'test-otp-token');
+  });
+}

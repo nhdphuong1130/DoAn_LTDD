@@ -2,8 +2,12 @@ import 'dart:typed_data';
 
 import 'package:english7_mobile/app/student_api.dart';
 import 'package:english7_mobile/features/tutor/image_selector.dart';
+import 'fake_learning.dart';
 
-class FakeStudentApi implements StudentApi {
+class FakeStudentApi with EmptyLearning implements StudentApi {
+  @override
+  Future<StudentProgress> loadProgress() async =>
+      const StudentProgress(0, 0, 0, []);
   static const defaultProfile = StudentProfile(
     id: 'user-1',
     email: 'student@example.com',
@@ -20,9 +24,68 @@ class FakeStudentApi implements StudentApi {
   int updateProfileCalls = 0;
   bool logoutCalled = false;
   List<String>? passwordArguments;
+  final sentOtpPhones = <String>[];
+  final sentOtpChannels = <String>[];
+  Object? nextOtpError;
+
+  final sentOtpPurposes = <String>[];
+  String? lastRegisteredPhone;
+  String? lastRegisteredPassword;
+  String? lastResetPhone;
+  String? lastResetNewPassword;
 
   @override
   Future<void> login(String email, String password) async {}
+
+  @override
+  Future<void> sendOtp(
+    String phone, {
+    String channel = 'sms',
+    String purpose = 'login',
+  }) async {
+    if (nextOtpError != null) throw nextOtpError!;
+    sentOtpPhones.add(phone);
+    sentOtpChannels.add(channel);
+    sentOtpPurposes.add(purpose);
+  }
+
+  @override
+  Future<void> verifyOtp(String phone, String otp) async {
+    if (nextOtpError != null) throw nextOtpError!;
+    profile = StudentProfile(
+      id: 'phone-user-1',
+      email: 'phone_${phone.replaceAll(RegExp(r'\D'), '')}@english7.edu.vn',
+      role: 'student',
+    );
+  }
+
+  @override
+  Future<void> registerPhone({
+    required String phone,
+    required String otp,
+    required String password,
+  }) async {
+    if (nextOtpError != null) throw nextOtpError!;
+    lastRegisteredPhone = phone;
+    lastRegisteredPassword = password;
+    profile = StudentProfile(
+      id: 'registered-phone-user-1',
+      email: 'phone_${phone.replaceAll(RegExp(r'\D'), '')}@english7.edu.vn',
+      role: 'student',
+    );
+  }
+
+  @override
+  Future<void> resetPassword({
+    required String phone,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    if (nextOtpError != null) throw nextOtpError!;
+    lastResetPhone = phone;
+    lastResetNewPassword = newPassword;
+  }
 
   @override
   Future<StudentProfile?> restoreSession() async {
@@ -93,39 +156,42 @@ class FakeStudentApi implements StudentApi {
   LessonDetail? customDetail;
 
   @override
-  Future<LessonDetail> loadLessonDetail(String unitId) async => customDetail ?? const LessonDetail(
-    id: 'unit-1',
-    unitNumber: 1,
-    title: 'Hobbies',
-    sections: [
-      LessonSection(
-        id: 'sec-1',
-        title: 'GETTING STARTED - My favourite hobby',
-        sectionType: 'lesson',
-        position: 1,
-        activities: [
-          LessonActivity(
-            id: 'act-1',
-            number: '1',
-            activityType: 'reading_dialogue',
-            instruction: 'Listen and read the conversation between Ann and Trang.',
-            fragments: [
-              LessonFragment(
-                id: 'frag-1',
-                pdfPage: 8,
-                printedPage: 8,
-                text: 'Ann: Your house is very nice, Trang.\nTrang: Thanks! Let\'s go upstairs. I\'ll show you my room.\nAnn: I love your dollhouse. It\'s amazing. Did you make it yourself?\nTrang: Yes. I like building dollhouses very much.\nAnn: Really? Is it hard to build one?\nTrang: Not really. All you need is some cardboard and glue. Then just use a bit of creativity. What do you do in your free time?\nAnn: I like horse riding.\nTrang: That\'s rather unusual. Not many people do that.\nAnn: Actually, it\'s more common than you think. There are some horse riding clubs in Ha Noi now. I go to the Riders\' Club every Sunday.\nTrang: I\'d love to go to your club this Sunday. I want to learn how to ride.\nAnn: Sure. My lesson starts at 8 a.m.',
-                sectionTitle: 'GETTING STARTED - My favourite hobby',
-                activityNumber: '1',
+  Future<LessonDetail> loadLessonDetail(String unitId) async =>
+      customDetail ??
+      const LessonDetail(
+        id: 'unit-1',
+        unitNumber: 1,
+        title: 'Hobbies',
+        sections: [
+          LessonSection(
+            id: 'sec-1',
+            title: 'GETTING STARTED - My favourite hobby',
+            sectionType: 'lesson',
+            position: 1,
+            activities: [
+              LessonActivity(
+                id: 'act-1',
+                number: '1',
                 activityType: 'reading_dialogue',
-                activityInstruction: 'Listen and read.',
+                instruction:
+                    'Listen and read the conversation between Ann and Trang.',
+                fragments: [
+                  LessonFragment(
+                    id: 'frag-1',
+                    pdfPage: 8,
+                    printedPage: 8,
+                    text: 'Ann: Your house is very nice, Trang.\nTrang: Thanks! Let\'s go upstairs. I\'ll show you my room.\nAnn: I love your dollhouse. It\'s amazing. Did you make it yourself?\nTrang: Yes. I like building dollhouses very much.\nAnn: Really? Is it hard to build one?\nTrang: Not really. All you need is some cardboard and glue. Then just use a bit of creativity. What do you do in your free time?\nAnn: I like horse riding.\nTrang: That\'s rather unusual. Not many people do that.\nAnn: Actually, it\'s more common than you think. There are some horse riding clubs in Ha Noi now. I go to the Riders\' Club every Sunday.\nTrang: I\'d love to go to your club this Sunday. I want to learn how to ride.\nAnn: Sure. My lesson starts at 8 a.m.',
+                    sectionTitle: 'GETTING STARTED - My favourite hobby',
+                    activityNumber: '1',
+                    activityType: 'reading_dialogue',
+                    activityInstruction: 'Listen and read.',
+                  ),
+                ],
               ),
             ],
           ),
         ],
-      ),
-    ],
-  );
+      );
 
   @override
   Future<TutorResult> askTutor(TutorQuery query) async {
@@ -149,8 +215,7 @@ class FakeStudentApi implements StudentApi {
     final hasAudio = setup.mode != 'reading';
     final resolvedAudioUrl =
         fakeAudioUrl ?? (hasAudio ? '/api/v1/media/audio/18' : null);
-    final resolvedAudioTitle =
-        fakeAudioTitle ?? (hasAudio ? 'Track 18' : null);
+    final resolvedAudioTitle = fakeAudioTitle ?? (hasAudio ? 'Track 18' : null);
     return QuizSession(
       'quiz-1',
       setup.durationMinutes,
@@ -171,10 +236,9 @@ class FakeStudentApi implements StudentApi {
   Future<QuizResult> submitQuiz(
     String quizId, [
     Map<String, String>? answers,
-  ]) async =>
-      (answers == null || answers.isEmpty)
-          ? const QuizResult(0, 10)
-          : const QuizResult(8, 10);
+  ]) async => (answers == null || answers.isEmpty)
+      ? const QuizResult(0, 10)
+      : const QuizResult(8, 10);
 }
 
 class FakeImageSelector implements ImageSelector {

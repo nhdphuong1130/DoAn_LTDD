@@ -29,6 +29,7 @@ class _QuizScreenState extends State<QuizScreen> {
   bool _isLoadingOptions = true;
   String? _loadError;
   bool _isStarting = false;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -41,20 +42,26 @@ class _QuizScreenState extends State<QuizScreen> {
       _isLoadingOptions = true;
       _loadError = null;
     });
-    widget.api.loadQuizOptions().then((options) {
-      if (!mounted) return;
-      setState(() {
-        _options = options;
-        _duration = options.presetDurations.isNotEmpty ? options.presetDurations.first : null;
-        _isLoadingOptions = false;
-      });
-    }).catchError((error) {
-      if (!mounted) return;
-      setState(() {
-        _isLoadingOptions = false;
-        _loadError = 'Không thể tải cấu hình bài kiểm tra. Vui lòng thử lại.';
-      });
-    });
+    widget.api
+        .loadQuizOptions()
+        .then((options) {
+          if (!mounted) return;
+          setState(() {
+            _options = options;
+            _duration = options.presetDurations.isNotEmpty
+                ? options.presetDurations.first
+                : null;
+            _isLoadingOptions = false;
+          });
+        })
+        .catchError((error) {
+          if (!mounted) return;
+          setState(() {
+            _isLoadingOptions = false;
+            _loadError =
+                'Không thể tải cấu hình bài kiểm tra. Vui lòng thử lại.';
+          });
+        });
   }
 
   @override
@@ -127,20 +134,36 @@ class _QuizScreenState extends State<QuizScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isStarting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi tạo bài kiểm tra: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Lỗi tạo bài kiểm tra: $e')));
     }
   }
 
   Future<void> _submit() async {
-    _timer?.cancel();
-    if (_isPlayingAudio) {
-      await NativeAudioPlayer.stop();
-      _isPlayingAudio = false;
+    if (_isSubmitting || _session == null || _result != null) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final result = await widget.api.submitQuiz(
+        _session!.id,
+        Map.of(_answers),
+      );
+      _timer?.cancel();
+      if (_isPlayingAudio) {
+        await NativeAudioPlayer.stop();
+        _isPlayingAudio = false;
+      }
+      if (mounted) setState(() => _result = result);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể lưu kết quả. Vui lòng thử nộp lại.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
-    final result = await widget.api.submitQuiz(_session!.id, _answers);
-    if (mounted) setState(() => _result = result);
   }
 
   String get _clock {
@@ -207,7 +230,9 @@ class _QuizScreenState extends State<QuizScreen> {
             Card(
               elevation: 2,
               margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -217,13 +242,17 @@ class _QuizScreenState extends State<QuizScreen> {
                       children: [
                         CircleAvatar(
                           radius: 12,
-                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .primaryContainer,
                           child: Text(
                             '${i + 1}',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
                             ),
                           ),
                         ),
@@ -266,7 +295,10 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
             ),
           const SizedBox(height: 20),
-          FilledButton(onPressed: _submit, child: const Text('Nộp bài')),
+          FilledButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: Text(_isSubmitting ? 'Đang lưu...' : 'Nộp bài'),
+          ),
         ],
       );
     }
@@ -301,10 +333,7 @@ class _QuizScreenState extends State<QuizScreen> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 16),
-        Text(
-          'Hình thức thi',
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
+        Text('Hình thức thi', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -380,7 +409,10 @@ class _QuizScreenState extends State<QuizScreen> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Bắt đầu'),
         ),

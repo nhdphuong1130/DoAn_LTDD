@@ -6,6 +6,7 @@ from english7.api.errors import install_error_handling
 from english7.api.router import router
 from english7.bootstrap import configure_runtime
 from english7.core.settings import get_settings
+from english7.modules.speaking.upload_limit import SpeakingUploadLimit
 
 settings = get_settings()
 
@@ -21,5 +22,6 @@ async def lifespan(application: FastAPI):
 
 
 app = FastAPI(title=settings.service_name, lifespan=lifespan)
+app.add_middleware(SpeakingUploadLimit, api_prefix=settings.api_prefix)
 install_error_handling(app)
 app.include_router(router, prefix=settings.api_prefix)

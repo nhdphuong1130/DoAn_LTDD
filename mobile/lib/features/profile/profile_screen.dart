@@ -135,14 +135,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _formatDisplayPhone(String email) {
+    final localPart = email.split('@').first;
+    final digits = localPart.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.startsWith('84') && digits.length >= 11) {
+      final local = '0${digits.substring(2)}';
+      if (local.length == 10) {
+        return '${local.substring(0, 4)} ${local.substring(4, 7)} ${local.substring(7)}';
+      }
+      return local;
+    }
+    return digits;
+  }
+
   Future<void> _changePassword() async {
+    final isPhoneUser = _profile?.email.startsWith('phone_') ?? false;
     final current = _currentPasswordController.text;
     final newPass = _newPasswordController.text;
     final confirm = _confirmPasswordController.text;
 
-    if (current.isEmpty || newPass.isEmpty || confirm.isEmpty) {
+    if (!isPhoneUser && current.isEmpty) {
       setState(
         () => _passwordError = 'Vui lòng điền đầy đủ các trường mật khẩu',
+      );
+      return;
+    }
+
+    if (newPass.isEmpty || confirm.isEmpty) {
+      setState(
+        () => _passwordError = 'Vui lòng điền đầy đủ các trường mật khẩu',
+      );
+      return;
+    }
+
+    if (newPass.length < 8) {
+      setState(
+        () => _passwordError = 'Mật khẩu phải có ít nhất 8 ký tự',
       );
       return;
     }
@@ -167,17 +195,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       setState(() => _changingPassword = false);
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đổi mật khẩu thành công')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isPhoneUser
+                ? 'Thiết lập mật khẩu thành công'
+                : 'Đổi mật khẩu thành công',
+          ),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _passwordError = 'Đổi mật khẩu thất bại';
+        _passwordError =
+            isPhoneUser ? 'Thiết lập mật khẩu thất bại' : 'Đổi mật khẩu thất bại';
         _changingPassword = false;
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Đổi mật khẩu thất bại')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isPhoneUser ? 'Thiết lập mật khẩu thất bại' : 'Đổi mật khẩu thất bại',
+          ),
+        ),
+      );
     }
   }
 
@@ -265,23 +305,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Thông tin cá nhân',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      if (!_isEditing)
-                        OutlinedButton.icon(
-                          onPressed: () => setState(() => _isEditing = true),
-                          icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('Chỉnh sửa hồ sơ'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        Text(
+                          'Thông tin cá nhân',
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
-                    ],
+                        if (!_isEditing)
+                          OutlinedButton.icon(
+                            onPressed: () => setState(() => _isEditing = true),
+                            icon: const Icon(Icons.edit, size: 16),
+                            label: const Text('Chỉnh sửa hồ sơ'),
+                          ),
+                      ],
+                    ),
                   ),
                   const Divider(height: 24),
-                  _buildReadOnlyRow('Email', profile.email),
+                  if (profile.email.startsWith('phone_')) ...[
+                    _buildReadOnlyRow(
+                      'Số điện thoại',
+                      _formatDisplayPhone(profile.email),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildReadOnlyRow(
+                      'Phương thức',
+                      'Xác thực OTP (SMS / Cuộc gọi)',
+                    ),
+                  ] else ...[
+                    _buildReadOnlyRow('Email', profile.email),
+                  ],
                   const SizedBox(height: 8),
                   _buildReadOnlyRow(
                     'Vai trò',
@@ -430,25 +488,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Đổi mật khẩu',
+                    profile.email.startsWith('phone_')
+                        ? 'Thiết lập mật khẩu'
+                        : 'Đổi mật khẩu',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  const Divider(height: 24),
-                  TextField(
-                    key: const Key('current-password-field'),
-                    controller: _currentPasswordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Mật khẩu hiện tại',
+                  if (profile.email.startsWith('phone_')) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tài khoản đăng nhập qua số điện thoại. Bạn có thể đặt mật khẩu tại đây để đăng nhập bằng SĐT + Mật khẩu trên màn hình đăng nhập.',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                  ],
+                  const Divider(height: 24),
+                  if (!profile.email.startsWith('phone_')) ...[
+                    TextField(
+                      key: const Key('current-password-field'),
+                      controller: _currentPasswordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Mật khẩu hiện tại',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextField(
                     key: const Key('new-password-field'),
                     controller: _newPasswordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Mật khẩu mới',
+                    decoration: InputDecoration(
+                      labelText: profile.email.startsWith('phone_')
+                          ? 'Mật khẩu mới (tối thiểu 8 ký tự)'
+                          : 'Mật khẩu mới',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -480,7 +551,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Đổi mật khẩu'),
+                          : Text(
+                              profile.email.startsWith('phone_')
+                                  ? 'Lưu mật khẩu'
+                                  : 'Đổi mật khẩu',
+                            ),
                     ),
                   ),
                 ],

@@ -351,26 +351,60 @@ class _DeckScreenState extends State<DeckScreen> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                FilledButton.icon(
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => SentencePracticeScreen(
-                          api: widget.api,
-                          deck: widget.deck,
-                          recorder: widget.audioPlayer,
-                          ttsService: widget.ttsService,
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SentencePracticeScreen(
+                                api: widget.api,
+                                deck: widget.deck,
+                                recorder: widget.audioPlayer,
+                                ttsService: widget.ttsService,
+                                isSentenceMode: false,
+                              ),
+                            ),
+                          );
+                          if (mounted) setState(_reload);
+                        },
+                        icon: const Icon(Icons.spellcheck_rounded),
+                        label: const Text('Luyện nói từ vựng'),
                       ),
-                    );
-                    if (mounted) setState(_reload);
-                  },
-                  icon: const Icon(Icons.record_voice_over),
-                  label: const Text('Ôn luyện nói cả câu'),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SentencePracticeScreen(
+                                api: widget.api,
+                                deck: widget.deck,
+                                recorder: widget.audioPlayer,
+                                ttsService: widget.ttsService,
+                                isSentenceMode: true,
+                              ),
+                            ),
+                          );
+                          if (mounted) setState(_reload);
+                        },
+                        icon: const Icon(Icons.record_voice_over_rounded),
+                        label: const Text('Luyện nói cả câu'),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Luyện nói câu hoàn chỉnh theo Unit, hoặc chọn từ bên dưới để luyện từng từ:',
+                  'Chọn luyện nói từng từ vựng hoặc nói câu hoàn chỉnh theo Unit:',
                   style: TextStyle(fontSize: 12),
                   textAlign: TextAlign.center,
                 ),

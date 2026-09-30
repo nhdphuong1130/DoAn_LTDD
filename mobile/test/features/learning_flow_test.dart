@@ -536,7 +536,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Ôn luyện nói cả câu'), findsOneWidget);
+      expect(find.text('Luyện nói từ vựng'), findsOneWidget);
+      expect(find.text('Luyện nói cả câu'), findsOneWidget);
       expect(find.text('Luyện nói từ này'), findsOneWidget);
       expect(find.text('Nghe phát âm tiếng Anh'), findsNothing);
     },
@@ -615,8 +616,14 @@ void main() {
     },
   );
   testWidgets(
-    'sentence practice screen renders sentence chips and handles auto-advance on pass',
+    'sentence practice screen renders continuous model sentence and auto-advances on pass',
     (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       final api = FakeLearningApi()
         ..failFirstSpeakingRequest = false
         ..mockMatchPercent = 90;
@@ -634,15 +641,17 @@ void main() {
             ),
             recorder: recorder,
             ttsService: tts,
+            isSentenceMode: true,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Câu 1 / 1'), findsOneWidget);
+      expect(find.text('Câu mẫu liền mạch:'), findsOneWidget);
       expect(find.text('Nghe mẫu (1.0x)'), findsOneWidget);
       expect(find.text('Thu âm'), findsOneWidget);
-      expect(find.text('Bỏ qua'), findsOneWidget);
+      expect(find.text('Bỏ qua ➔'), findsNothing);
 
       await tester.tap(find.text('Nghe mẫu (1.0x)'));
       await tester.pumpAndSettle();
@@ -662,13 +671,19 @@ void main() {
       // Wait for auto-advance timer (1.8s) to transition to summary
       await tester.pumpAndSettle();
 
-      expect(find.text('🎉 Hoàn thành bài luyện nói!'), findsOneWidget);
+      expect(find.textContaining('Hoàn thành bài luyện nói'), findsOneWidget);
       expect(find.text('Luyện tập lại từ đầu'), findsOneWidget);
     },
   );
   testWidgets(
-    'sentence practice screen allows skip when score is below 80 percent',
+    'sentence practice screen enforces 5 failed attempts before allowing skip',
     (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       final api = FakeLearningApi()
         ..failFirstSpeakingRequest = false
         ..mockMatchPercent = 60;
@@ -686,26 +701,39 @@ void main() {
             ),
             recorder: recorder,
             ttsService: tts,
+            isSentenceMode: true,
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Thu âm'));
+      // Attempts 1 to 4: skip should not be available
+      for (int i = 1; i <= 4; i++) {
+        await tester.tap(find.text(i == 1 ? 'Thu âm' : 'Thử lại ↻ (Lần ${i - 1}/5)'));
+        await tester.pump();
+        await tester.tap(find.text('Dừng thu & Chấm điểm'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Cần đạt ≥ 80%'), findsOneWidget);
+        expect(find.text('Thử lại ↻ (Lần $i/5)'), findsOneWidget);
+        expect(find.text('Bỏ qua ➔'), findsNothing);
+      }
+
+      // 5th attempt: fails again -> skip button unlocks!
+      await tester.tap(find.text('Thử lại ↻ (Lần 4/5)'));
       await tester.pump();
       await tester.tap(find.text('Dừng thu & Chấm điểm'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Cần đạt ≥ 80%'), findsOneWidget);
+      expect(find.text('Bỏ qua ➔'), findsOneWidget);
       expect(find.text('Thử lại ↻'), findsOneWidget);
-      expect(find.text('Bỏ qua'), findsOneWidget);
 
-      // Tap skip
-      await tester.tap(find.text('Bỏ qua'));
+      // Now tap skip
+      await tester.tap(find.text('Bỏ qua ➔'));
       await tester.pumpAndSettle();
 
       // Advancing past the only card reaches summary
-      expect(find.text('🎉 Hoàn thành bài luyện nói!'), findsOneWidget);
+      expect(find.textContaining('Hoàn thành bài luyện nói'), findsOneWidget);
     },
   );
   testWidgets(
@@ -734,6 +762,44 @@ void main() {
       expect(find.text('sở thích'), findsOneWidget);
       // Example sentence is not present
       expect(find.textContaining('My favourite'), findsNothing);
+    },
+  );
+  testWidgets(
+    'sentence practice screen in word mode renders vocabulary word practice',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final api = FakeLearningApi();
+      final recorder = FakeRecorder();
+      final tts = FakeTtsService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SentencePracticeScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            recorder: recorder,
+            ttsService: tts,
+            isSentenceMode: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Từ 1 / 1'), findsOneWidget);
+      expect(find.text('Lắng nghe và phát âm từ vựng sau:'), findsOneWidget);
+      expect(find.text('hobby'), findsOneWidget);
+      expect(find.text('Nghĩa từ: sở thích'), findsOneWidget);
+      expect(find.text('Nghe mẫu (1.0x)'), findsOneWidget);
+      expect(find.text('Thu âm'), findsOneWidget);
     },
   );
 }

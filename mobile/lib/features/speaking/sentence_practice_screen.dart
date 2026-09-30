@@ -23,6 +23,7 @@ class SentencePracticeScreen extends StatefulWidget {
   final FlashcardDeck deck;
   final SpeechRecorder? recorder;
   final TtsService? ttsService;
+  final bool isSentenceMode;
 
   const SentencePracticeScreen({
     super.key,
@@ -30,6 +31,7 @@ class SentencePracticeScreen extends StatefulWidget {
     required this.deck,
     this.recorder,
     this.ttsService,
+    this.isSentenceMode = true,
   });
 
   @override
@@ -46,7 +48,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
   String? _initError;
 
   int _index = 0;
-  int _attemptCount = 0;
+  int _failCount = 0;
   int _completedCount = 0;
   double _totalScore = 0.0;
 
@@ -92,10 +94,12 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
       final voices = futures[1] as SpeakingVoices;
 
       final items = cards.map((c) {
-        final sentence = c.example.trim().isNotEmpty
-            ? c.example.trim()
-            : 'My favourite ${c.word} is very interesting.';
-        return SentencePracticeItem(card: c, sentence: sentence);
+        final text = widget.isSentenceMode
+            ? (c.example.trim().isNotEmpty
+                ? c.example.trim()
+                : 'My favourite ${c.word} is very interesting.')
+            : c.word.trim();
+        return SentencePracticeItem(card: c, sentence: text);
       }).toList();
 
       if (mounted) {
@@ -110,7 +114,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _initError = 'Không thể tải danh sách câu luyện nói. Hãy thử lại.';
+          _initError = 'Không thể tải danh sách luyện nói. Hãy thử lại.';
           _loadingCards = false;
         });
       }
@@ -151,7 +155,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
     return null;
   }
 
-  Future<void> _speakSentence({double rate = 0.48}) async {
+  Future<void> _speakPrompt({double rate = 0.48}) async {
     final item = _currentItem;
     if (item == null || _recording || _submitting) return;
 
@@ -267,10 +271,11 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
         setState(() {
           _submitting = false;
           _result = res;
-          _attemptCount++;
           if (isPassed) {
             _completedCount++;
             _totalScore += res.matchPercent;
+          } else {
+            _failCount++;
           }
         });
 
@@ -278,7 +283,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
         if (isPassed) {
           _autoAdvanceTimer = Timer(const Duration(milliseconds: 1800), () {
             if (mounted) {
-              _nextSentence();
+              _nextItem();
             }
           });
         }
@@ -300,24 +305,26 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
     }
   }
 
-  void _skipSentence() {
+  void _skipItem() {
+    // Only allow skipping if user failed >= 5 times
+    if (_failCount < 5) return;
     _recordingTimer?.cancel();
     _autoAdvanceTimer?.cancel();
     if (_recording) {
       unawaited(_recorder.stop());
       _recording = false;
     }
-    _nextSentence();
+    _nextItem();
   }
 
-  void _nextSentence() {
+  void _nextItem() {
     _autoAdvanceTimer?.cancel();
     setState(() {
       _index++;
       _result = null;
       _error = null;
       _requestId = null;
-      _attemptCount = 0;
+      _failCount = 0;
       _submitting = false;
       _recording = false;
     });
@@ -381,16 +388,19 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final modeLabel = widget.isSentenceMode ? 'câu' : 'từ vựng';
+    final titlePrefix = widget.isSentenceMode ? 'Luyện nói câu' : 'Luyện nói từ vựng';
+
     if (_loadingCards) {
       return Scaffold(
-        appBar: AppBar(title: Text('Luyện nói - ${widget.deck.name}')),
+        appBar: AppBar(title: Text('$titlePrefix - ${widget.deck.name}')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_initError != null) {
       return Scaffold(
-        appBar: AppBar(title: Text('Luyện nói - ${widget.deck.name}')),
+        appBar: AppBar(title: Text('$titlePrefix - ${widget.deck.name}')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -409,14 +419,14 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
 
     if (_items.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text('Luyện nói - ${widget.deck.name}')),
+        appBar: AppBar(title: Text('$titlePrefix - ${widget.deck.name}')),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(Icons.info_outline, size: 48, color: Colors.grey),
               const SizedBox(height: 12),
-              const Text('Bộ từ này chưa có câu để luyện nói.'),
+              Text('Bộ từ này chưa có $modeLabel để luyện nói.'),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -428,7 +438,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
       );
     }
 
-    // Finished all sentences: summary screen!
+    // Finished all items: summary screen!
     if (_index >= _items.length) {
       final avgScore = _completedCount > 0
           ? (_totalScore / _completedCount).toStringAsFixed(0)
@@ -458,9 +468,9 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  '🎉 Hoàn thành bài luyện nói!',
-                  style: TextStyle(
+                Text(
+                  '🎉 Hoàn thành bài luyện nói $modeLabel!',
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -468,7 +478,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Bạn đã hoàn thành các câu trong ${widget.deck.name}.',
+                  'Bạn đã hoàn thành các $modeLabel trong ${widget.deck.name}.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -492,7 +502,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Số câu đạt yêu cầu:'),
+                            Text('Số $modeLabel đạt yêu cầu:'),
                             Text(
                               '$_completedCount / ${_items.length}',
                               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -526,7 +536,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                         _index = 0;
                         _completedCount = 0;
                         _totalScore = 0.0;
-                        _attemptCount = 0;
+                        _failCount = 0;
                         _result = null;
                         _error = null;
                       });
@@ -557,7 +567,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.deck.name} • Luyện nói câu'),
+        title: Text('${widget.deck.name} • $titlePrefix'),
         leading: IconButton(
           icon: const Icon(Icons.close),
           tooltip: 'Thoát',
@@ -586,7 +596,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Câu ${_index + 1} / ${_items.length}',
+                        '${widget.isSentenceMode ? "Câu" : "Từ"} ${_index + 1} / ${_items.length}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -615,16 +625,20 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
-                          Icons.record_voice_over_rounded,
+                          widget.isSentenceMode
+                              ? Icons.record_voice_over_rounded
+                              : Icons.spellcheck_rounded,
                           size: 20,
                           color: Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Lắng nghe và đọc to câu hoàn chỉnh sau:',
-                          style: TextStyle(
+                          widget.isSentenceMode
+                              ? 'Lắng nghe và đọc to câu hoàn chỉnh sau:'
+                              : 'Lắng nghe và phát âm từ vựng sau:',
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
@@ -634,7 +648,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Sentence Card
+                  // Content Target Card
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -659,16 +673,130 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Word chips
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (int i = 0; i < _promptWords.length; i++)
-                              _buildWordChip(_promptWords[i], i),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                        if (widget.isSentenceMode) ...[
+                          // Câu mẫu liền mạch (Continuous model sentence - User screenshot requirement)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.menu_book_rounded,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Câu mẫu liền mạch:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  currentItem.sentence,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                    height: 1.45,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Interactive Word chips breakdown
+                          Text(
+                            'Chạm từng từ để nghe phát âm chi tiết:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (int i = 0; i < _promptWords.length; i++)
+                                _buildWordChip(_promptWords[i], i),
+                            ],
+                          ),
+                        ] else ...[
+                          // Từ vựng liền mạch (Single Word Practice)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 18,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  currentItem.card.word,
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                    color: Theme.of(context).colorScheme.primary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                if (currentItem.card.ipa != null &&
+                                    currentItem.card.ipa!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    currentItem.card.ipa!,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontStyle: FontStyle.italic,
+                                      fontFamily: 'monospace',
+                                      color: Theme.of(context).colorScheme.secondary,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 14),
                         const Divider(),
                         const SizedBox(height: 8),
 
@@ -678,7 +806,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                             FilledButton.tonalIcon(
                               onPressed: _recording || _submitting
                                   ? null
-                                  : () => _speakSentence(rate: 0.48),
+                                  : () => _speakPrompt(rate: 0.48),
                               icon: const Icon(Icons.volume_up_rounded, size: 18),
                               label: const Text('Nghe mẫu (1.0x)'),
                             ),
@@ -686,7 +814,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                             IconButton.filledTonal(
                               onPressed: _recording || _submitting
                                   ? null
-                                  : () => _speakSentence(rate: 0.32),
+                                  : () => _speakPrompt(rate: 0.32),
                               icon: const Icon(Icons.slow_motion_video_rounded),
                               tooltip: 'Nghe chậm (0.5x)',
                             ),
@@ -694,7 +822,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                         ),
                         const SizedBox(height: 10),
 
-                        // Vocabulary context / Vietnamese meaning
+                        // Context: Vietnamese meaning
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -708,7 +836,9 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'Từ trọng tâm: "${currentItem.card.word}" (${currentItem.card.meaning})',
+                            widget.isSentenceMode
+                                ? 'Từ trọng tâm: "${currentItem.card.word}" • Nghĩa: ${currentItem.card.meaning}'
+                                : 'Nghĩa từ: ${currentItem.card.meaning}',
                             style: TextStyle(
                               fontSize: 12.5,
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -827,7 +957,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Tự động chuyển câu tiếp theo...',
+                                  'Tự động chuyển $modeLabel tiếp theo...',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.green.shade800,
@@ -837,25 +967,60 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                               ],
                             ),
                           ],
-                          if (isFailed && _attemptCount >= 2) ...[
+                          if (isFailed) ...[
                             const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                '💡 Mẹo: Bạn có thể bấm "Bỏ qua" bên dưới để chuyển câu khác nếu gặp khó khăn.',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: Color(0xFF92400E),
+                            if (_failCount >= 5)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFFFDE68A),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                      color: Color(0xFF92400E),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Bạn đã thử 5 lần chưa đạt. Bạn có thể bấm "Bỏ qua ➔" để sang phần tiếp theo hoặc bấm "Thử lại ↻".',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF92400E),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '💡 Bạn đã phát âm chưa đạt $_failCount/5 lần. Cần thử lại ít nhất 5 lần nếu muốn bỏ qua.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF92400E),
+                                  ),
                                 ),
                               ),
-                            ),
                           ],
                         ],
                       ),
@@ -917,11 +1082,13 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                       ),
                     )
                   else if (!isPassed && !isFailed)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
-                        'Bấm "Thu âm" và đọc cả câu. Bấm "Dừng thu" để hệ thống tự động gửi.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        widget.isSentenceMode
+                            ? 'Bấm "Thu âm" và đọc cả câu. Bấm "Dừng thu" để hệ thống tự động gửi.'
+                            : 'Bấm "Thu âm" và phát âm từ vựng. Bấm "Dừng thu" để hệ thống tự động gửi.',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -951,7 +1118,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF16A34A),
                         ),
-                        onPressed: _nextSentence,
+                        onPressed: _nextItem,
                         icon: const Icon(Icons.arrow_forward),
                         label: const Text(
                           'Tiếp tục ngay ➔',
@@ -960,59 +1127,63 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                       ),
                     ),
                   ] else if (isFailed) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
+                    if (_failCount >= 5) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(48),
+                              ),
+                              onPressed: _skipItem,
+                              icon: const Icon(Icons.skip_next),
+                              label: const Text('Bỏ qua ➔'),
                             ),
-                            onPressed: _skipSentence,
-                            icon: const Icon(Icons.skip_next),
-                            label: const Text('Bỏ qua'),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: FilledButton.icon(
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(48),
+                              ),
+                              onPressed: _retry,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Thử lại ↻'),
                             ),
-                            onPressed: _retry,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Thử lại ↻'),
                           ),
+                        ],
+                      ),
+                    ] else ...[
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          onPressed: _retry,
+                          icon: const Icon(Icons.refresh),
+                          label: Text('Thử lại ↻ (Lần $_failCount/5)'),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ] else ...[
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(100, 48),
-                          ),
-                          onPressed: _submitting ? null : _skipSentence,
-                          icon: const Icon(Icons.skip_next, size: 18),
-                          label: const Text('Bỏ qua'),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(48),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size.fromHeight(48),
-                            ),
-                            onPressed: _submitting ? null : _startRecording,
-                            icon: const Icon(Icons.mic),
-                            label: const Text(
-                              'Thu âm',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ),
+                        onPressed: _submitting ? null : _startRecording,
+                        icon: const Icon(Icons.mic),
+                        label: const Text(
+                          'Thu âm',
+                          style: TextStyle(fontSize: 16),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ],

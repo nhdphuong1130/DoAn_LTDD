@@ -23,3 +23,18 @@ def test_curriculum_ontology_units_mapped_correctly():
     u12_pron = next((p for p in ontology.pronunciations if p.unit_number == 12), None)
     assert u12_pron is not None
     assert "intonation" in u12_pron.symbol.lower() or "falling" in u12_pron.symbol.lower()
+
+
+def test_curriculum_ontology_comprehensive_vocabulary_all_units():
+    ontology = get_curriculum_ontology()
+    assert len(ontology.vocabulary) == 300
+    for unit_number in range(1, 13):
+        unit_vocab = [v for v in ontology.vocabulary if v.unit_number == unit_number]
+        assert len(unit_vocab) == 25, f"Unit {unit_number} has {len(unit_vocab)} words, expected 25"
+        for v in unit_vocab:
+            assert v.word.strip() != ""
+            assert v.pos in {"noun", "verb", "adj"}
+            assert v.ipa.startswith("/") and v.ipa.endswith("/")
+            assert v.meaning_vi.strip() != ""
+            assert v.example.strip() != ""
+

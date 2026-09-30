@@ -14,7 +14,7 @@ def seed_textbook_flashcards(session_factory) -> int:
             content = normalize_word(fragment.normalized_text)
             for vocabulary in ontology.vocabulary:
                 word = normalize_word(vocabulary.word)
-                if vocabulary.unit_number != unit.number or not re.search(r'(?<!\w)' + re.escape(word) + r'(?!\w)', content):
+                if vocabulary.unit_number != unit.number or not re.search(r'(?<!\w)' + re.escape(word) + r'(?:s|es|d|ed|ing)?(?!\w)', content):
                     continue
                 deck = tx.textbook_deck(unit.id)
                 if deck is None:

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     service_name: str = "english7-api"
     speech_runtime_url: str = 'http://speech-runtime:8010'
     speech_timeout_seconds: float = 120.0
+    vocab_audio_cache_dir: str | None = None
     api_prefix: str = "/api/v1"
     database_url: SecretStr | None = None
     jwt_secret: SecretStr | None = None

@@ -37,7 +37,9 @@ class Runtime:
 
 
 @pytest.fixture
-def learning():
+def learning(tmp_path):
+    from english7.modules.flashcards.audio_cache import VocabAudioCache
+
     engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
@@ -47,8 +49,9 @@ def learning():
         session.add(role)
         session.flush()
         session.add(User(id=user.id, email=user.email, password_hash='x', role_id=role.id))
-    cards = FlashcardService(SQLAlchemyFlashcardRepository(factory))
     runtime = Runtime()
+    audio_cache = VocabAudioCache(tmp_path / 'vocab_audio', runtime=runtime)
+    cards = FlashcardService(SQLAlchemyFlashcardRepository(factory), audio_cache=audio_cache)
     speech = SpeakingService(SpeakingRepository(factory), cards, runtime)
     app.dependency_overrides[get_flashcard_service] = lambda: cards
     app.dependency_overrides[get_speaking_service] = lambda: speech
@@ -118,3 +121,26 @@ def test_oversized_speech_rejected_before_auth_and_multipart_parsing(client, mon
                            files={'audio': ('recording.wav', b'x' * (3 * 1024 * 1024), 'audio/wav')})
     assert response.status_code == 413
     assert called == []
+
+
+def test_flashcard_card_audio_endpoint(client, learning):
+    deck = client.post('/api/v1/flashcards/decks', json={'name': 'Audio Deck'}).json()
+    card = client.post(f'/api/v1/flashcards/decks/{deck["id"]}/cards',
+                       json={'word': 'community', 'meaning': 'cộng đồng'}).json()
+    card_id = card['id']
+
+    # Initial fetch (cache miss -> synthesizes)
+    response = client.get(f'/api/v1/flashcards/cards/{card_id}/audio')
+    assert response.status_code == 200
+    assert response.headers['content-type'] == 'audio/wav'
+    assert response.content == b'RIFF-test'
+    assert 'public, max-age=86400' in response.headers['cache-control']
+
+    # Second fetch (cache hit -> reads from disk)
+    response2 = client.get(f'/api/v1/flashcards/cards/{card_id}/audio')
+    assert response2.status_code == 200
+    assert response2.content == b'RIFF-test'
+
+    # Non-existent card returns 404
+    missing_response = client.get(f'/api/v1/flashcards/cards/{uuid4()}/audio')
+    assert missing_response.status_code == 404

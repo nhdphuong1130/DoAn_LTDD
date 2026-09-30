@@ -13,9 +13,16 @@ def utc(value: datetime) -> datetime:
 
 
 class FlashcardService:
-    def __init__(self, repository, clock: Callable[[], datetime] | None = None):
+    def __init__(self, repository, clock: Callable[[], datetime] | None = None, audio_cache=None):
         self.repository = repository
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.audio_cache = audio_cache
+
+    def card_audio(self, user_id: UUID, card_id: UUID) -> bytes:
+        card = self.get_card(user_id, card_id)
+        if self.audio_cache is None:
+            raise ApplicationError('speech_unavailable', 'Audio service is not configured', 503)
+        return self.audio_cache.get_or_synthesize(card.word)
 
     @staticmethod
     def _deck(tx, user_id, deck_id, write=False):

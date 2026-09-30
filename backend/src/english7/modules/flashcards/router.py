@@ -23,7 +23,18 @@ def require_student(user: Annotated[AuthUser, Depends(get_current_user)]) -> Aut
 
 
 def get_flashcard_service() -> FlashcardService:
-    return FlashcardService(SQLAlchemyFlashcardRepository(get_session_factory()))
+    from pathlib import Path
+    from english7.core.settings import get_settings
+    from english7.modules.flashcards.audio_cache import VocabAudioCache
+    from english7.modules.speaking.runtime import LocalSpeechRuntime
+
+    settings = get_settings()
+    cache_dir = Path(settings.vocab_audio_cache_dir) if settings.vocab_audio_cache_dir else (Path(__file__).resolve().parents[5] / "speech" / ".cache" / "vocab_audio")
+    audio_cache = VocabAudioCache(
+        cache_dir=cache_dir,
+        runtime=LocalSpeechRuntime(settings.speech_runtime_url, settings.speech_timeout_seconds),
+    )
+    return FlashcardService(SQLAlchemyFlashcardRepository(get_session_factory()), audio_cache=audio_cache)
 
 
 Student = Annotated[AuthUser, Depends(require_student)]
@@ -121,3 +132,9 @@ def review(card_id: UUID, payload: ReviewInput, user: Student, service: Service)
 @router.patch('/cards/{card_id}/flag')
 def flag(card_id: UUID, payload: FlagInput, user: Student, service: Service) -> Card:
     return service.flag(user.id, card_id, payload.difficult)
+
+
+@router.get('/cards/{card_id}/audio')
+def card_audio(card_id: UUID, user: Student, service: Service) -> Response:
+    audio_bytes = service.card_audio(user.id, card_id)
+    return Response(content=audio_bytes, media_type='audio/wav', headers={'Cache-Control': 'public, max-age=86400'})

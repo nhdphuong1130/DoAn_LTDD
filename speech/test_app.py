@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 class Engine:
     def voices(self):
-        return [{"id": "mai", "name": "Mai Anh"}]
+        return [{"id": "en-GB-SoniaNeural", "name": "Sonia (Anh - Anh, Nữ)"}]
 
     def transcribe(self, data):
         if data == b"silence":
@@ -22,7 +22,7 @@ def client():
 def test_health_and_voices():
     assert client().get("/health").json()["available"] is True
     assert client().get("/voices").json() == {
-        "items": [{"id": "mai", "name": "Mai Anh"}], "available": True
+        "items": [{"id": "en-GB-SoniaNeural", "name": "Sonia (Anh - Anh, Nữ)"}], "available": True
     }
 
 
@@ -38,17 +38,17 @@ def test_upload_limit():
 
 
 def test_tts_validation_and_wav():
-    assert client().post("/synthesize", json={"text": "Xin chào", "voice_id": "mai"}).headers["content-type"] == "audio/wav"
-    assert client().post("/synthesize", json={"text": "Xin chào", "voice_id": "unknown"}).status_code == 422
+    assert client().post("/synthesize", json={"text": "gardening", "voice_id": "en-GB-SoniaNeural"}).headers["content-type"] == "audio/wav"
+    assert client().post("/synthesize", json={"text": "gardening", "voice_id": "unknown"}).status_code == 422
     for text in ("", "   ", "x" * 401):
-        assert client().post("/synthesize", json={"text": text, "voice_id": "mai"}).status_code == 422
+        assert client().post("/synthesize", json={"text": text, "voice_id": "en-GB-SoniaNeural"}).status_code == 422
 
 
 def test_unavailable_and_empty_upload():
     from speech.app import create_app
     unavailable = TestClient(create_app())
     assert unavailable.get("/voices").json() == {"items": [], "available": False}
-    assert unavailable.post("/synthesize", json={"text": "Xin chào", "voice_id": "mai"}).status_code == 503
+    assert unavailable.post("/synthesize", json={"text": "gardening", "voice_id": "en-GB-SoniaNeural"}).status_code == 503
     assert client().post("/transcribe", files={"audio": ("empty.wav", b"")}).status_code == 422
 
 

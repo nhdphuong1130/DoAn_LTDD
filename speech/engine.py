@@ -6,9 +6,13 @@ from pathlib import Path
 
 CACHE = Path(os.environ.get("SPEECH_CACHE_DIR", Path(__file__).parent / ".cache")).resolve()
 ASR_REPO = "Systran/faster-whisper-base.en"
-TTS_REPO = "pnnbao-ump/VieNeu-TTS-v3-Turbo"
-CODEC_REPO = "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX"
-VOICE_IDS = ("Mai Anh", "Hải Đăng", "Thùy Dung", "Thiện Minh")
+VOICE_IDS = ("en-GB-SoniaNeural", "en-GB-RyanNeural", "en-US-JennyNeural", "en-US-GuyNeural")
+VOICE_LABELS = {
+    "en-GB-SoniaNeural": "Sonia (Anh - Anh, Nữ)",
+    "en-GB-RyanNeural": "Ryan (Anh - Anh, Nam)",
+    "en-US-JennyNeural": "Jenny (Anh - Mỹ, Nữ)",
+    "en-US-GuyNeural": "Guy (Anh - Mỹ, Nam)",
+}
 SAMPLE_RATE = 16000
 MAX_SAMPLES = 16 * SAMPLE_RATE  # 15-second UI limit + encoder/stop tolerance.
 
@@ -63,21 +67,17 @@ class LocalEngine:
     def __init__(self, *, setup=False):
         configure_cache(offline=not setup)
         from faster_whisper import WhisperModel
-        from vieneu import Vieneu
 
         if not setup and not (CACHE / "ready.json").is_file():
             raise RuntimeError("Run scripts/setup_speech.sh before starting speech")
         self.asr = WhisperModel(ASR_REPO, device="cpu", compute_type="int8", cpu_threads=4,
                                 local_files_only=not setup)
-        self.tts = Vieneu(mode="v3turbo", backend="onnx", device="cpu", precision="fp32", threads=4)
-        presets = {voice_id: label for label, voice_id in self.tts.list_preset_voices()}
-        self._voices = [{"id": v, "name": v} for v in VOICE_IDS if v in presets]
-        if len(self._voices) != len(VOICE_IDS):
-            raise RuntimeError("Installed VieNeu presets do not match the configured voice list")
+        self._voices = [{"id": v, "name": VOICE_LABELS.get(v, v)} for v in VOICE_IDS]
         self.model = "faster-whisper-1.2.1/base.en"
         if (CACHE / "ready.json").is_file():
-            revision = json.loads((CACHE / "ready.json").read_text())["models"][ASR_REPO]
-            self.model += "@" + revision
+            ready_data = json.loads((CACHE / "ready.json").read_text())
+            if "models" in ready_data and ASR_REPO in ready_data["models"]:
+                self.model += "@" + ready_data["models"][ASR_REPO]
 
     def voices(self):
         return self._voices
@@ -93,11 +93,34 @@ class LocalEngine:
         return {"transcript": transcript, "model": self.model}
 
     def synthesize(self, text, voice_id):
-        import soundfile as sf
-        audio = self.tts.infer(text, voice=voice_id, max_new_frames=300, max_chars=200,
-                               apply_watermark=False)
-        if not len(audio):
+        import asyncio
+        import av
+        import edge_tts
+
+        if voice_id not in VOICE_IDS:
+            raise ValueError(f"Unknown preset voice: {voice_id}")
+
+        async def _synthesize():
+            communicate = edge_tts.Communicate(text, voice_id)
+            chunks = []
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    chunks.append(chunk["data"])
+            return b"".join(chunks)
+
+        mp3_bytes = asyncio.run(_synthesize())
+        if not mp3_bytes:
             raise RuntimeError("Speech synthesis returned empty audio")
-        output = io.BytesIO()
-        sf.write(output, audio, self.tts.sample_rate, format="WAV", subtype="PCM_16")
-        return output.getvalue()
+
+        input_io = io.BytesIO(mp3_bytes)
+        output_io = io.BytesIO()
+        with av.open(input_io) as in_container:
+            with av.open(output_io, mode="w", format="wav") as out_container:
+                out_stream = out_container.add_stream("pcm_s16le", rate=SAMPLE_RATE)
+                for frame in in_container.decode(audio=0):
+                    for packet in out_stream.encode(frame):
+                        out_container.mux(packet)
+                for packet in out_stream.encode(None):
+                    out_container.mux(packet)
+        return output_io.getvalue()
+

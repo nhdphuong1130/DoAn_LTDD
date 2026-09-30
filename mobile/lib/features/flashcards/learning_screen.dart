@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/learning_api.dart';
 import '../../services/speech_recorder.dart';
 import '../../services/tts_service.dart';
+import '../speaking/sentence_practice_screen.dart';
 import '../speaking/speaking_screen.dart';
 import 'review_screen.dart';
 
@@ -346,9 +347,35 @@ class _DeckScreenState extends State<DeckScreen> {
               ),
           ),
         if (widget.speaking)
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Chọn một từ để thu âm và đối chiếu bản chép lời.'),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                FilledButton.icon(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => SentencePracticeScreen(
+                          api: widget.api,
+                          deck: widget.deck,
+                          recorder: widget.audioPlayer,
+                          ttsService: widget.ttsService,
+                        ),
+                      ),
+                    );
+                    if (mounted) setState(_reload);
+                  },
+                  icon: const Icon(Icons.record_voice_over),
+                  label: const Text('Ôn luyện nói cả câu'),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Luyện nói câu hoàn chỉnh theo Unit, hoặc chọn từ bên dưới để luyện từng từ:',
+                  style: TextStyle(fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         Expanded(
           child: FutureBuilder<List<Flashcard>>(
@@ -467,7 +494,6 @@ class _DeckScreenState extends State<DeckScreen> {
                               Text(card.meaning),
                               if (card.ipa != null || card.pos != null)
                                 Text('${card.ipa ?? ""} ${card.pos ?? ""}'),
-                              if (card.example.isNotEmpty) Text(card.example),
                               if (card.notes.isNotEmpty)
                                 Text('Ghi chú: ${card.notes}'),
                               if (card.imageUrl != null)

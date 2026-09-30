@@ -809,29 +809,6 @@ class _ReviewScreenState extends State<ReviewScreen>
                   ),
                 ),
               ),
-              // Example sentence
-              if (card.example.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Text(
-                    '"${card.example}"',
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontStyle: FontStyle.italic,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ),
-              ],
               const Spacer(),
               // Swipe instructions
               Center(

@@ -37,8 +37,6 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
   SpeakingResult? _result;
   Timer? _timer;
   bool _busy = false, _recording = false;
-  bool _isSentenceMode = false;
-  String? _activeTappedWord;
 
   @override
   void initState() {
@@ -46,44 +44,7 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
     _loadVoices();
   }
 
-  String get _unitSentence {
-    if (widget.card.example.trim().isNotEmpty) {
-      return widget.card.example.trim();
-    }
-    return 'My favourite ${widget.card.word} is very interesting.';
-  }
-
-  String get _effectivePrompt {
-    if (_isSentenceMode) {
-      return _unitSentence;
-    }
-    return widget.card.word.trim();
-  }
-
-  List<String> get _promptWords {
-    return _effectivePrompt
-        .split(RegExp(r'\s+'))
-        .where((w) => w.trim().isNotEmpty)
-        .toList();
-  }
-
-  String _clean(String w) =>
-      w.toLowerCase().replaceAll(RegExp(r"[^a-z0-9']"), '');
-
-  WordEvaluation? _getWordEvaluation(String word, int index) {
-    final evals = _result?.wordEvaluations;
-    if (evals == null || evals.isEmpty) return null;
-    final clean = _clean(word);
-    if (clean.isEmpty) return null;
-
-    if (index < evals.length && _clean(evals[index].word) == clean) {
-      return evals[index];
-    }
-    for (final e in evals) {
-      if (_clean(e.word) == clean) return e;
-    }
-    return null;
-  }
+  String get _effectivePrompt => widget.card.word.trim();
 
   Future<void> _loadVoices() async {
     try {
@@ -141,32 +102,13 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
       try {
         await _tts.speak(_effectivePrompt, language: 'en-GB', rate: rate);
       } catch (_) {
-        if (!_isSentenceMode) {
-          await _playResponse(
-            widget.card.audioUrl != null
-                ? widget.api.loadSampleAudio(widget.card.audioUrl!)
-                : widget.api.loadCardAudio(widget.card.id),
-          );
-        }
+        await _playResponse(
+          widget.card.audioUrl != null
+              ? widget.api.loadSampleAudio(widget.card.audioUrl!)
+              : widget.api.loadCardAudio(widget.card.id),
+        );
       }
     });
-  }
-
-  Future<void> _speakSingleWord(String word) async {
-    final cleanWord = word.replaceAll(RegExp(r"[^a-zA-Z0-9']"), '');
-    if (cleanWord.isEmpty) return;
-    setState(() => _activeTappedWord = word);
-    try {
-      await _tts.speak(cleanWord, language: 'en-GB', rate: 0.42);
-    } catch (_) {
-      // Ignored if device TTS unavailable
-    } finally {
-      if (mounted) {
-        Future.delayed(const Duration(milliseconds: 400), () {
-          if (mounted) setState(() => _activeTappedWord = null);
-        });
-      }
-    }
   }
 
   Future<void> _start() => _run(() async {
@@ -254,114 +196,25 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Luyện nói'),
+        title: const Text('Luyện nói từ vựng'),
         toolbarHeight: 48,
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // 2 Distinct Speaking Practice Sections: Vocabulary vs Unit Sentence
-          Center(
-            child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment<bool>(
-                  value: false,
-                  icon: Icon(Icons.spellcheck_rounded, size: 18),
-                  label: Text('1. Luyện từ vựng'),
-                ),
-                ButtonSegment<bool>(
-                  value: true,
-                  icon: Icon(Icons.record_voice_over_rounded, size: 18),
-                  label: Text('2. Luyện nói câu'),
-                ),
-              ],
-              selected: {_isSentenceMode},
-              onSelectionChanged: _busy || _recording
-                  ? null
-                  : (s) {
-                      setState(() {
-                        _isSentenceMode = s.first;
-                        _result = null;
-                        _audio = null;
-                        _error = null;
-                      });
-                    },
+          Text(card.word, style: Theme.of(context).textTheme.headlineMedium),
+          if (card.ipa != null && card.ipa!.isNotEmpty)
+            Text(
+              card.ipa!,
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.secondary,
+                fontFamily: 'monospace',
+              ),
             ),
-          ),
+          Text(card.meaning),
+          Text(card.sourceLabel ?? 'Nội dung SGK Unit'),
           const SizedBox(height: 8),
-
-          // Header description of selected section
-          Text(
-            _isSentenceMode
-                ? 'Phần 2: Luyện phát âm câu hoàn chỉnh theo Unit'
-                : 'Phần 1: Luyện phát âm từ vựng bài học',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 4),
-
-          // Target Display (Word vs Sentence)
-          if (!_isSentenceMode) ...[
-            Text(card.word, style: Theme.of(context).textTheme.headlineMedium),
-            if (card.ipa != null && card.ipa!.isNotEmpty)
-              Text(
-                card.ipa!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.secondary,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            Text(card.meaning),
-            Text(card.sourceLabel ?? 'Nội dung SGK Unit'),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      for (int i = 0; i < _promptWords.length; i++)
-                        _buildWordChip(_promptWords[i], i),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                        onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.32),
-                        icon: const Icon(Icons.slow_motion_video_rounded, size: 20),
-                        tooltip: 'Nghe chậm (0.5x)',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Chạm từng từ để nghe phát âm riêng • Nghĩa từ: ${card.meaning}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(card.sourceLabel ?? 'Nội dung SGK Unit'),
-          ],
-          const SizedBox(height: 6),
 
           // Standard Audio Button Row (Normal 1.0x & Slow Turtle 0.5x)
           Row(
@@ -373,14 +226,12 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
                   label: const Text('Nghe mẫu tiếng Anh'),
                 ),
               ),
-              if (!_isSentenceMode) ...[
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.32),
-                  icon: const Icon(Icons.slow_motion_video_rounded),
-                  tooltip: 'Nghe chậm (0.5x)',
-                ),
-              ],
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.32),
+                icon: const Icon(Icons.slow_motion_video_rounded),
+                tooltip: 'Nghe chậm (0.5x)',
+              ),
             ],
           ),
 
@@ -555,73 +406,6 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
             ),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildWordChip(String word, int index) {
-    final eval = _getWordEvaluation(word, index);
-    final isTapped = _activeTappedWord == word;
-
-    Color bg = Theme.of(context).colorScheme.surface;
-    Color border = Theme.of(context).colorScheme.outlineVariant;
-    Color textColor = Theme.of(context).colorScheme.onSurface;
-    IconData? badgeIcon;
-
-    if (eval != null) {
-      if (eval.status == 'correct') {
-        bg = const Color(0xFFDCFCE7);
-        border = const Color(0xFF22C55E);
-        textColor = const Color(0xFF15803D);
-        badgeIcon = Icons.check_circle_rounded;
-      } else if (eval.status == 'near') {
-        bg = const Color(0xFFFEF9C3);
-        border = const Color(0xFFEAB308);
-        textColor = const Color(0xFFA16207);
-        badgeIcon = Icons.info_rounded;
-      } else {
-        bg = const Color(0xFFFEE2E2);
-        border = const Color(0xFFEF4444);
-        textColor = const Color(0xFFB91C1C);
-        badgeIcon = Icons.cancel_rounded;
-      }
-    } else if (isTapped) {
-      bg = Theme.of(context).colorScheme.primaryContainer;
-      border = Theme.of(context).colorScheme.primary;
-      textColor = Theme.of(context).colorScheme.onPrimaryContainer;
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _speakSingleWord(word),
-        borderRadius: BorderRadius.circular(8),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: border, width: eval != null ? 1.5 : 1.0),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                word,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: textColor,
-                ),
-              ),
-              if (badgeIcon != null) ...[
-                const SizedBox(width: 4),
-                Icon(badgeIcon, size: 13, color: textColor),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }

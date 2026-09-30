@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Dedicated "Ôn luyện nói cả câu" (Sentence Speaking Practice) session for each unit with Duolingo-style step-by-step progress, auto-advance on >=80% match, word-by-word evaluation chips, and skip button ("Bỏ qua") for difficult sentences.
 - Private/published flashcard decks, recall-based review schedules, difficult-word flags and verified textbook vocabulary seeding with real Unit/page citations.
 - Optional free CPU speech practice: bounded Android WAV recording, transcript/word comparison (not a pronunciation grade), selectable VieNeu Vietnamese feedback voices and persistent owner-scoped history.
 - Learning navigation and vocabulary/speaking progress summaries; additive migration and `make` commands for optional speech setup, startup and tests.
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Removed English example sentence display from flashcard back card and deck card list, keeping flashcards focused strictly on English word + phonetic on the front, and Vietnamese meaning on the back.
 - Load retrieval embeddings lazily into the persistent configured cache so model downloads cannot block login or flashcard startup.
 - Persist quiz submissions and graded answers atomically, scope progress to the authenticated student, and make submission retries idempotent. Replace the placeholder progress tab with totals, accuracy, submission history, refresh, and error recovery.
 - Added `make run` with backend readiness checks, connected emulator detection and published API port forwarding; `make up` starts core services, while `make up-full` includes the OCR worker.

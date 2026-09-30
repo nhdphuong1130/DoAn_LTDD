@@ -7,6 +7,7 @@ import 'package:english7_mobile/app/learning_api.dart';
 import 'package:english7_mobile/api/api_error.dart';
 import 'package:english7_mobile/features/flashcards/learning_screen.dart';
 import 'package:english7_mobile/features/flashcards/review_screen.dart';
+import 'package:english7_mobile/features/speaking/sentence_practice_screen.dart';
 import 'package:english7_mobile/features/speaking/speaking_screen.dart';
 import 'package:english7_mobile/services/speech_recorder.dart';
 import 'package:english7_mobile/services/tts_service.dart';
@@ -15,6 +16,8 @@ class FakeLearningApi implements LearningApi {
   Object? submitError;
   Object? cardAudioError;
   bool voicesAvailable = true;
+  bool failFirstSpeakingRequest = true;
+  double mockMatchPercent = 100;
   Completer<Uint8List>? preview;
   Completer<Uint8List>? cardAudioCompleter;
   int cardAudioCalls = 0;
@@ -80,14 +83,14 @@ class FakeLearningApi implements LearningApi {
   }) async {
     requests.add(requestId);
     if (submitError != null) throw submitError!;
-    if (requests.length == 1) throw Exception('Mất kết nối');
+    if (failFirstSpeakingRequest && requests.length == 1) throw Exception('Mất kết nối');
     return SpeakingResult.fromJson({
       'id': 'attempt',
       'card_id': cardId,
-      'prompt': 'hobby',
-      'transcript': 'hobby',
-      'match_percent': 100,
-      'feedback': 'Đã khớp từ mẫu.',
+      'prompt': prompt ?? 'hobby',
+      'transcript': prompt ?? 'hobby',
+      'match_percent': mockMatchPercent,
+      'feedback': mockMatchPercent >= 80 ? 'Đã khớp từ mẫu.' : 'Chưa khớp câu mẫu.',
       'source_label': '[Unit 1, Page 8]',
       'created_at': '2026-09-25T00:00:00Z',
       'missing_words': [],
@@ -533,6 +536,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('Ôn luyện nói cả câu'), findsOneWidget);
       expect(find.text('Luyện nói từ này'), findsOneWidget);
       expect(find.text('Nghe phát âm tiếng Anh'), findsNothing);
     },
@@ -608,6 +612,128 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(player.plays, 0);
+    },
+  );
+  testWidgets(
+    'sentence practice screen renders sentence chips and handles auto-advance on pass',
+    (tester) async {
+      final api = FakeLearningApi()
+        ..failFirstSpeakingRequest = false
+        ..mockMatchPercent = 90;
+      final recorder = FakeRecorder();
+      final tts = FakeTtsService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SentencePracticeScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            recorder: recorder,
+            ttsService: tts,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Câu 1 / 1'), findsOneWidget);
+      expect(find.text('Nghe mẫu (1.0x)'), findsOneWidget);
+      expect(find.text('Thu âm'), findsOneWidget);
+      expect(find.text('Bỏ qua'), findsOneWidget);
+
+      await tester.tap(find.text('Nghe mẫu (1.0x)'));
+      await tester.pumpAndSettle();
+      expect(tts.spoken.isNotEmpty, isTrue);
+
+      await tester.tap(find.text('Thu âm'));
+      await tester.pump();
+      expect(find.text('Dừng thu & Chấm điểm'), findsOneWidget);
+
+      await tester.tap(find.text('Dừng thu & Chấm điểm'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('Xuất sắc!'), findsOneWidget);
+      expect(api.requests.isNotEmpty, isTrue);
+
+      // Wait for auto-advance timer (1.8s) to transition to summary
+      await tester.pumpAndSettle();
+
+      expect(find.text('🎉 Hoàn thành bài luyện nói!'), findsOneWidget);
+      expect(find.text('Luyện tập lại từ đầu'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'sentence practice screen allows skip when score is below 80 percent',
+    (tester) async {
+      final api = FakeLearningApi()
+        ..failFirstSpeakingRequest = false
+        ..mockMatchPercent = 60;
+      final recorder = FakeRecorder();
+      final tts = FakeTtsService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SentencePracticeScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            recorder: recorder,
+            ttsService: tts,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Thu âm'));
+      await tester.pump();
+      await tester.tap(find.text('Dừng thu & Chấm điểm'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Cần đạt ≥ 80%'), findsOneWidget);
+      expect(find.text('Thử lại ↻'), findsOneWidget);
+      expect(find.text('Bỏ qua'), findsOneWidget);
+
+      // Tap skip
+      await tester.tap(find.text('Bỏ qua'));
+      await tester.pumpAndSettle();
+
+      // Advancing past the only card reaches summary
+      expect(find.text('🎉 Hoàn thành bài luyện nói!'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'flashcard review back card does not render example sentence',
+    (tester) async {
+      final api = FakeLearningApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReviewScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      // Tap card to flip to back
+      await tester.tap(find.text('hobby'));
+      await tester.pumpAndSettle();
+
+      // Back shows Vietnamese meaning
+      expect(find.text('sở thích'), findsOneWidget);
+      // Example sentence is not present
+      expect(find.textContaining('My favourite'), findsNothing);
     },
   );
 }

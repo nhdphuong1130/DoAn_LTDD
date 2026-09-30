@@ -37,19 +37,25 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
   SpeakingResult? _result;
   Timer? _timer;
   bool _busy = false, _recording = false;
-  late bool _isSentenceMode;
+  bool _isSentenceMode = false;
   String? _activeTappedWord;
 
   @override
   void initState() {
     super.initState();
-    _isSentenceMode = widget.card.example.trim().isNotEmpty;
     _loadVoices();
   }
 
-  String get _effectivePrompt {
-    if (_isSentenceMode && widget.card.example.trim().isNotEmpty) {
+  String get _unitSentence {
+    if (widget.card.example.trim().isNotEmpty) {
       return widget.card.example.trim();
+    }
+    return 'My favourite ${widget.card.word} is very interesting.';
+  }
+
+  String get _effectivePrompt {
+    if (_isSentenceMode) {
+      return _unitSentence;
     }
     return widget.card.word.trim();
   }
@@ -177,21 +183,46 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
       _submittedVoice = null;
     });
     _timer = Timer(const Duration(seconds: 15), () {
-      if (mounted) _stop();
+      if (mounted) _stopAndSubmit();
     });
   });
 
-  Future<void> _stop() => _run(() async {
+  Future<void> _stopAndSubmit() => _run(() async {
     _timer?.cancel();
+    Uint8List? bytes;
     try {
-      final bytes = await _recorder.stop();
-      if (mounted) setState(() => _audio = bytes);
+      bytes = await _recorder.stop();
+      if (mounted) {
+        setState(() {
+          _audio = bytes;
+          _recording = false;
+        });
+      }
     } finally {
       if (mounted) setState(() => _recording = false);
+    }
+
+    if (bytes.isNotEmpty) {
+      _requestId ??= learningRequestId();
+      _submittedVoice ??= _voice;
+      final result = await widget.api.submitSpeaking(
+        requestId: _requestId!,
+        cardId: widget.card.id,
+        voiceId: _submittedVoice!,
+        audio: bytes,
+        prompt: _effectivePrompt,
+      );
+      if (mounted) {
+        setState(() {
+          _result = result;
+        });
+        await _recorder.dispose();
+      }
     }
   });
 
   Future<void> _send() => _run(() async {
+    if (_audio == null) return;
     _requestId ??= learningRequestId();
     _submittedVoice ??= _voice;
     final result = await widget.api.submitSpeaking(
@@ -201,7 +232,6 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
       audio: _audio!,
       prompt: _effectivePrompt,
     );
-    _audio = null;
     if (mounted) {
       setState(() => _result = result);
       await _recorder.dispose();
@@ -221,7 +251,6 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
   Widget build(BuildContext context) {
     final card = widget.card;
     final ready = _voices?.available == true && _voice != null;
-    final hasExample = card.example.trim().isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
@@ -231,95 +260,141 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
-          // Word & Meaning Header
-          Text(card.word, style: Theme.of(context).textTheme.headlineMedium),
-          Text(card.meaning),
-          Text(card.sourceLabel ?? 'Nội dung cá nhân'),
-
-          // Duolingo Interactive Word Chips & Mode Toggle
-          if (hasExample) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                ChoiceChip(
-                  visualDensity: VisualDensity.compact,
-                  label: const Text('Cả câu'),
-                  selected: _isSentenceMode,
-                  onSelected: _busy || _recording
-                      ? null
-                      : (s) {
-                          if (s) {
-                            setState(() {
-                              _isSentenceMode = true;
-                              _result = null;
-                              _audio = null;
-                              _error = null;
-                            });
-                          }
-                        },
+          // 2 Distinct Speaking Practice Sections: Vocabulary vs Unit Sentence
+          Center(
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: false,
+                  icon: Icon(Icons.spellcheck_rounded, size: 18),
+                  label: Text('1. Luyện từ vựng'),
                 ),
-                const SizedBox(width: 6),
-                ChoiceChip(
-                  visualDensity: VisualDensity.compact,
-                  label: const Text('Từ vựng'),
-                  selected: !_isSentenceMode,
-                  onSelected: _busy || _recording
-                      ? null
-                      : (s) {
-                          if (s) {
-                            setState(() {
-                              _isSentenceMode = false;
-                              _result = null;
-                              _audio = null;
-                              _error = null;
-                            });
-                          }
-                        },
+                ButtonSegment<bool>(
+                  value: true,
+                  icon: Icon(Icons.record_voice_over_rounded, size: 18),
+                  label: Text('2. Luyện nói câu'),
                 ),
               ],
+              selected: {_isSentenceMode},
+              onSelectionChanged: _busy || _recording
+                  ? null
+                  : (s) {
+                      setState(() {
+                        _isSentenceMode = s.first;
+                        _result = null;
+                        _audio = null;
+                        _error = null;
+                      });
+                    },
             ),
-          ],
+          ),
+          const SizedBox(height: 8),
 
-          const SizedBox(height: 6),
-          // Interactive Word Chips
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+          // Header description of selected section
+          Text(
+            _isSentenceMode
+                ? 'Phần 2: Luyện phát âm câu hoàn chỉnh theo Unit'
+                : 'Phần 1: Luyện phát âm từ vựng bài học',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 4),
+
+          // Target Display (Word vs Sentence)
+          if (!_isSentenceMode) ...[
+            Text(card.word, style: Theme.of(context).textTheme.headlineMedium),
+            if (card.ipa != null && card.ipa!.isNotEmpty)
+              Text(
+                card.ipa!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.secondary,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            Text(card.meaning),
+            Text(card.sourceLabel ?? 'Nội dung SGK Unit'),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (int i = 0; i < _promptWords.length; i++)
+                        _buildWordChip(_promptWords[i], i),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                        onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.32),
+                        icon: const Icon(Icons.slow_motion_video_rounded, size: 20),
+                        tooltip: 'Nghe chậm (0.5x)',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Chạm từng từ để nghe phát âm riêng • Nghĩa từ: ${card.meaning}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (int i = 0; i < _promptWords.length; i++)
-                  _buildWordChip(_promptWords[i], i),
-                // Slow Turtle Button
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            const SizedBox(height: 4),
+            Text(card.sourceLabel ?? 'Nội dung SGK Unit'),
+          ],
+          const SizedBox(height: 6),
+
+          // Standard Audio Button Row (Normal 1.0x & Slow Turtle 0.5x)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.48),
+                  icon: const Icon(Icons.volume_up_rounded, size: 18),
+                  label: const Text('Nghe mẫu tiếng Anh'),
+                ),
+              ),
+              if (!_isSentenceMode) ...[
+                const SizedBox(width: 8),
+                IconButton.outlined(
                   onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.32),
-                  icon: const Icon(Icons.slow_motion_video_rounded, size: 20),
+                  icon: const Icon(Icons.slow_motion_video_rounded),
                   tooltip: 'Nghe chậm (0.5x)',
                 ),
               ],
+            ],
+          ),
+
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 4),
+            child: Text(
+              _recording
+                  ? 'Đang lắng nghe... Chạm "Dừng thu" để hệ thống tự động chấm điểm ngay.'
+                  : 'Nói rõ ràng vào mic. Khi bấm "Dừng thu", hệ thống sẽ tự động gửi và chấm điểm.',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-
-          // Standard audio button (maintains test compatibility)
-          OutlinedButton(
-            onPressed: _busy || _recording ? null : () => _speakPrompt(rate: 0.48),
-            child: const Text('Nghe mẫu tiếng Anh'),
-          ),
-
-          const Text(
-            'Đọc từ mẫu, thu tối đa 15 giây. Bản thu chỉ được gửi khi bạn chọn gửi.',
           ),
 
           if (!ready)
@@ -376,40 +451,56 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
           if (_busy) const LinearProgressIndicator(),
           const SizedBox(height: 6),
 
-          // Primary Record / Stop Button
+          // Primary Record / Stop Button (Auto-submits on stop!)
           if (_recording)
-            FilledButton(
+            FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: _busy ? null : _stop,
-              child: const Text('Dừng thu'),
+              onPressed: _busy ? null : _stopAndSubmit,
+              icon: const Icon(Icons.stop_rounded),
+              label: const Text('Dừng thu', style: TextStyle(fontWeight: FontWeight.bold)),
             )
           else
-            FilledButton(
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
               onPressed: _busy ? null : _start,
-              child: Text(
+              icon: const Icon(Icons.mic_rounded),
+              label: Text(
                 _audio == null && _result == null ? 'Thu âm' : 'Thu lại',
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
 
-          if (_audio != null) ...[
-            const SizedBox(height: 4),
-            OutlinedButton(
-              onPressed: _busy
-                  ? null
-                  : () => _run(() => _recorder.play(_audio!)),
-              child: const Text('Nghe bản thu'),
-            ),
-            const SizedBox(height: 4),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: _busy || !ready ? null : _send,
-              child: const Text('Gửi bản thu'),
+          // In case auto-submit encountered a network error, provide manual retry button
+          if (_audio != null && _result == null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(() => _recorder.play(_audio!)),
+                    child: const Text('Nghe bản thu'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _busy || !ready ? null : _send,
+                    child: const Text('Gửi bản thu'),
+                  ),
+                ),
+              ],
             ),
           ],
 
@@ -435,15 +526,32 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
             Text(_result!.feedback),
             if (_result!.sourceLabel != null) Text(_result!.sourceLabel!),
             const SizedBox(height: 6),
-            OutlinedButton(
-              onPressed: _busy
-                  ? null
-                  : () => _run(
-                      () => _playResponse(
-                        widget.api.loadSpeakingAudio(_result!.id),
-                      ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () => _playResponse(
+                              widget.api.loadSpeakingAudio(_result!.id),
+                            ),
+                          ),
+                    child: const Text('Nghe phản hồi'),
+                  ),
+                ),
+                if (_audio != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() => _recorder.play(_audio!)),
+                      child: const Text('Nghe bản thu'),
                     ),
-              child: const Text('Nghe phản hồi'),
+                  ),
+                ],
+              ],
             ),
           ],
         ],

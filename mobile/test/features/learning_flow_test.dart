@@ -143,9 +143,6 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Dừng thu'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Gửi bản thu'));
-    await tester.tap(find.text('Gửi bản thu'));
-    await tester.pumpAndSettle();
     expect(
       find.text(
         'Chưa nghe rõ bản thu. Em hãy chọn Thu lại và nói rõ trong 15 giây.',
@@ -303,7 +300,7 @@ void main() {
     expect(find.text('Luyện nói'), findsOneWidget);
   });
   testWidgets(
-    'recording never auto submits and retry retains request identity',
+    'stop recording automatically submits and retry retains request identity',
     (tester) async {
       final api = FakeLearningApi();
       await tester.pumpWidget(
@@ -325,9 +322,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 16));
       await tester.pumpAndSettle();
-      expect(api.requests, isEmpty);
-      await tester.tap(find.text('Gửi bản thu'));
-      await tester.pumpAndSettle();
+      expect(api.requests.length, 1);
       await tester.tap(find.text('Gửi bản thu'));
       await tester.pumpAndSettle();
       expect(api.requests.length, 2);

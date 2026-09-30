@@ -71,12 +71,8 @@ mixin ApiLearning on Object implements LearningApi {
   Future<void> deleteCard(String id) =>
       learningClient.delete('/api/v1/flashcards/cards/$id');
   @override
-  Future<List<Flashcard>> loadReviewCards(String deckId) async => _items(
-    (await learningClient.getJson(
-      '/api/v1/flashcards/review?deck_id=${Uri.encodeQueryComponent(deckId)}',
-    )).body,
-    Flashcard.fromJson,
-  );
+  Future<List<Flashcard>> loadReviewCards(String deckId) async =>
+      loadCards(deckId);
   @override
   Future<FlashcardReviewResult> reviewCard(
     String id, {

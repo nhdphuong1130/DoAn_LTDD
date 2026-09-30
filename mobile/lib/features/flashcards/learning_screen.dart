@@ -328,22 +328,22 @@ class _DeckScreenState extends State<DeckScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: FilledButton.icon(
-              onPressed: () async {
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => ReviewScreen(
-                      api: widget.api,
-                      deck: widget.deck,
-                      audioPlayer: widget.audioPlayer,
-                      ttsService: widget.ttsService,
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ReviewScreen(
+                        api: widget.api,
+                        deck: widget.deck,
+                        audioPlayer: widget.audioPlayer,
+                        ttsService: widget.ttsService,
+                      ),
                     ),
-                  ),
-                );
-                if (mounted) setState(_reload);
-              },
-              icon: const Icon(Icons.school),
-              label: const Text('Ôn thẻ đến hạn & từ mới'),
-            ),
+                  );
+                  if (mounted) setState(_reload);
+                },
+                icon: const Icon(Icons.school),
+                label: const Text('Ôn tập bộ thẻ từ vựng'),
+              ),
           ),
         if (widget.speaking)
           const Padding(

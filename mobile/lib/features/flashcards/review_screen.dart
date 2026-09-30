@@ -54,7 +54,7 @@ class _ReviewScreenState extends State<ReviewScreen>
   @override
   void initState() {
     super.initState();
-    _cards = widget.api.loadReviewCards(widget.deck.id);
+    _cards = widget.api.loadCards(widget.deck.id);
 
     _flipController = AnimationController(
       vsync: this,
@@ -234,7 +234,7 @@ class _ReviewScreenState extends State<ReviewScreen>
                   const SizedBox(height: 12),
                   FilledButton.tonal(
                     onPressed: () => setState(() {
-                      _cards = widget.api.loadReviewCards(widget.deck.id);
+                      _cards = widget.api.loadCards(widget.deck.id);
                     }),
                     child: const Text('Thử lại'),
                   ),

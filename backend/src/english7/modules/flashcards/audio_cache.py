@@ -10,7 +10,7 @@ class SpeechSynthesizer(Protocol):
 
 
 class VocabAudioCache:
-    def __init__(self, cache_dir: Path, runtime: SpeechSynthesizer, default_voice: str = "Mai Anh"):
+    def __init__(self, cache_dir: Path, runtime: SpeechSynthesizer, default_voice: str = "en-GB-SoniaNeural"):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.runtime = runtime

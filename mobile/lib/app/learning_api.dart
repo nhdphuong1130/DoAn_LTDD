@@ -121,12 +121,32 @@ class SpeakingVoices {
   );
 }
 
+class WordEvaluation {
+  final String word;
+  final String status; // 'correct', 'near', 'missing'
+  final double score;
+  final String? heard;
+  const WordEvaluation({
+    required this.word,
+    required this.status,
+    required this.score,
+    this.heard,
+  });
+  factory WordEvaluation.fromJson(Map<String, dynamic> j) => WordEvaluation(
+    word: j['word'] as String? ?? '',
+    status: j['status'] as String? ?? 'missing',
+    score: (j['score'] as num?)?.toDouble() ?? 0.0,
+    heard: j['heard'] as String?,
+  );
+}
+
 class SpeakingResult {
   final String id, cardId, prompt, transcript, feedback;
   final String? sourceLabel;
   final double matchPercent;
   final DateTime createdAt;
   final List<String> missingWords, extraWords;
+  final List<WordEvaluation> wordEvaluations;
   const SpeakingResult({
     required this.id,
     required this.cardId,
@@ -138,6 +158,7 @@ class SpeakingResult {
     required this.createdAt,
     required this.missingWords,
     required this.extraWords,
+    this.wordEvaluations = const [],
   });
   factory SpeakingResult.fromJson(Map<String, dynamic> j) => SpeakingResult(
     id: j['id'] as String,
@@ -150,6 +171,9 @@ class SpeakingResult {
     createdAt: DateTime.parse(j['created_at'] as String),
     missingWords: List<String>.from(j['missing_words'] as List? ?? []),
     extraWords: List<String>.from(j['extra_words'] as List? ?? []),
+    wordEvaluations: (j['word_evaluations'] as List? ?? [])
+        .map((e) => WordEvaluation.fromJson(e as Map<String, dynamic>))
+        .toList(),
   );
 }
 
@@ -200,6 +224,7 @@ abstract interface class LearningApi {
     required String cardId,
     required String voiceId,
     required Uint8List audio,
+    String? prompt,
   });
   Future<List<SpeakingResult>> loadSpeakingHistory();
   Future<Uint8List> loadSpeakingAudio(String id);

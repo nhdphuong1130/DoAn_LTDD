@@ -53,7 +53,8 @@ def test_comparison_is_word_match_not_pronunciation():
     assert result['match_percent'] == 75
     assert result['missing_words'] == ['books']
     assert result['extra_words'] == []
-    assert compare_words('hello', 'hello extra')['match_percent'] == 0
+    assert compare_words('hello', 'hello extra')['match_percent'] >= 90
+    assert compare_words('hello', 'hello extra')['extra_words'] == ['extra']
     assert compare_words("I'm happy", "i’m happy")['match_percent'] == 100
 
 

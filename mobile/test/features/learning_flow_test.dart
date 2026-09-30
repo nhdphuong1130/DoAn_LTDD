@@ -76,6 +76,7 @@ class FakeLearningApi implements LearningApi {
     required String cardId,
     required String voiceId,
     required Uint8List audio,
+    String? prompt,
   }) async {
     requests.add(requestId);
     if (submitError != null) throw submitError!;

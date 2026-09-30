@@ -122,9 +122,13 @@ mixin ApiLearning on Object implements LearningApi {
     required String cardId,
     required String voiceId,
     required Uint8List audio,
+    String? prompt,
   }) async {
-    final query = Uri(queryParameters: {'card_id': cardId, 'voice_id': voiceId})
-        .query;
+    final params = {'card_id': cardId, 'voice_id': voiceId};
+    if (prompt != null && prompt.isNotEmpty) {
+      params['prompt'] = prompt;
+    }
+    final query = Uri(queryParameters: params).query;
     final response = await learningClient.postMultipart(
       '/api/v1/speaking/attempts/$requestId?$query',
       fieldName: 'audio',

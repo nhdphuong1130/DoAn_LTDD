@@ -48,12 +48,13 @@ def preview(payload: VoiceRequest, user: Student, service: Service):
 @router.post('/speaking/attempts/{request_id}')
 async def submit(request_id: UUID, card_id: UUID, user: Student, service: Service,
                  voice_id: Annotated[str, Query(min_length=1, max_length=100)],
-                 audio: Annotated[UploadFile, File()]):
+                 audio: Annotated[UploadFile, File()],
+                 prompt: Annotated[str | None, Query(max_length=500)] = None):
     try:
         data = await audio.read(MAX_AUDIO_BYTES + 1)
         if len(data) > MAX_AUDIO_BYTES:
             raise ApplicationError('recording_too_large', 'Recording exceeds 2 MiB', 413)
-        return await run_in_threadpool(service.submit, user.id, request_id, card_id, voice_id, data)
+        return await run_in_threadpool(service.submit, user.id, request_id, card_id, voice_id, data, prompt=prompt)
     finally:
         await audio.close()
 

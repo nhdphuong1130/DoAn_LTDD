@@ -1,7 +1,7 @@
 import 'package:flutter_tts/flutter_tts.dart';
 
 abstract interface class TtsService {
-  Future<void> speak(String text, {String language = 'en-GB'});
+  Future<void> speak(String text, {String language = 'en-GB', double? rate});
   Future<void> stop();
   Future<void> dispose();
 }
@@ -13,7 +13,7 @@ class NativeTtsService implements TtsService {
   Future<FlutterTts> _getEngine() async {
     if (_tts != null) return _tts!;
     final tts = FlutterTts();
-    await tts.setSpeechRate(0.45);
+    await tts.setSpeechRate(0.48);
     await tts.setPitch(1.0);
     await tts.awaitSpeakCompletion(true);
     _tts = tts;
@@ -22,9 +22,14 @@ class NativeTtsService implements TtsService {
   }
 
   @override
-  Future<void> speak(String text, {String language = 'en-GB'}) async {
+  Future<void> speak(String text, {String language = 'en-GB', double? rate}) async {
     final engine = await _getEngine();
     await engine.setLanguage(language);
+    if (rate != null) {
+      await engine.setSpeechRate(rate);
+    } else {
+      await engine.setSpeechRate(0.48);
+    }
     final result = await engine.speak(text);
     if (result == 0) {
       throw Exception('TTS engine failed to speak');
@@ -55,7 +60,7 @@ class FakeTtsService implements TtsService {
   Object? error;
 
   @override
-  Future<void> speak(String text, {String language = 'en-GB'}) async {
+  Future<void> speak(String text, {String language = 'en-GB', double? rate}) async {
     if (error != null) throw error!;
     spoken.add((text: text, language: language));
   }

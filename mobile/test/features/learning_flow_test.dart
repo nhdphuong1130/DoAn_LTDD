@@ -12,12 +12,16 @@ import 'package:english7_mobile/services/speech_recorder.dart';
 
 class FakeLearningApi implements LearningApi {
   Object? submitError;
+  Object? cardAudioError;
   bool voicesAvailable = true;
   Completer<Uint8List>? preview;
+  Completer<Uint8List>? cardAudioCompleter;
   int cardAudioCalls = 0;
   @override
   Future<Uint8List> loadCardAudio(String cardId) async {
     cardAudioCalls++;
+    if (cardAudioError != null) throw cardAudioError!;
+    if (cardAudioCompleter != null) return cardAudioCompleter!.future;
     return Uint8List.fromList([82, 73, 70, 70]);
   }
   @override
@@ -399,4 +403,131 @@ void main() {
       expect(recorder.plays, 1);
     },
   );
+  testWidgets(
+    'deck screen in flashcard mode plays pronunciation audio instead of opening speaking screen',
+    (tester) async {
+      final api = FakeLearningApi();
+      final player = FakeRecorder();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DeckScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            speaking: false,
+            audioPlayer: player,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nghe phát âm'), findsOneWidget);
+      expect(find.text('Luyện nói từ này'), findsNothing);
+
+      await tester.tap(find.text('Nghe phát âm'));
+      await tester.pumpAndSettle();
+
+      expect(api.cardAudioCalls, 1);
+      expect(player.plays, 1);
+    },
+  );
+  testWidgets(
+    'deck screen in speaking mode offers speaking screen navigation',
+    (tester) async {
+      final api = FakeLearningApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DeckScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            speaking: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Luyện nói từ này'), findsOneWidget);
+      expect(find.text('Nghe phát âm'), findsNothing);
+    },
+  );
+  testWidgets(
+    'deck screen audio failure shows snackbar error message',
+    (tester) async {
+      final api = FakeLearningApi()..cardAudioError = Exception('Network error');
+      final player = FakeRecorder();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DeckScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            speaking: false,
+            audioPlayer: player,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Nghe phát âm'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Tạm thời chưa phát được âm thanh'), findsOneWidget);
+      expect(player.plays, 0);
+    },
+  );
+  testWidgets(
+    'deck screen late audio response cannot play after leaving screen',
+    (tester) async {
+      final api = FakeLearningApi()..cardAudioCompleter = Completer<Uint8List>();
+      final player = FakeRecorder();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Navigator(
+            onGenerateRoute: (settings) => MaterialPageRoute<void>(
+              builder: (context) => DeckScreen(
+                api: api,
+                deck: const FlashcardDeck(
+                  id: 'deck',
+                  name: 'Unit 1',
+                  kind: 'textbook',
+                  cardCount: 1,
+                ),
+                speaking: false,
+                audioPlayer: player,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Nghe phát âm'));
+      await tester.pump();
+
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Trang khác'))),
+      );
+      await tester.pumpAndSettle();
+
+      api.cardAudioCompleter!.complete(Uint8List.fromList([1, 2, 3]));
+      await tester.pumpAndSettle();
+
+      expect(player.plays, 0);
+    },
+  );
 }
+
+

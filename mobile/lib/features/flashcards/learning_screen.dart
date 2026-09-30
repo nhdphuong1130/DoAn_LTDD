@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/learning_api.dart';
+import '../../services/speech_recorder.dart';
 import '../speaking/speaking_screen.dart';
 import 'review_screen.dart';
+
 
 class LearningScreen extends StatefulWidget {
   final LearningApi api;
@@ -170,26 +174,63 @@ class DeckScreen extends StatefulWidget {
   final LearningApi api;
   final FlashcardDeck deck;
   final bool speaking;
+  final SpeechRecorder? audioPlayer;
   const DeckScreen({
     super.key,
     required this.api,
     required this.deck,
     this.speaking = false,
+    this.audioPlayer,
   });
   @override
   State<DeckScreen> createState() => _DeckScreenState();
 }
 
 class _DeckScreenState extends State<DeckScreen> {
+  late final SpeechRecorder _player =
+      widget.audioPlayer ?? NativeSpeechRecorder();
   late Future<List<Flashcard>> _cards;
+  String? _playingCardId;
+
   @override
   void initState() {
     super.initState();
     _reload();
   }
 
+  @override
+  void dispose() {
+    unawaited(_player.dispose());
+    super.dispose();
+  }
+
   void _reload() {
     _cards = widget.api.loadCards(widget.deck.id);
+  }
+
+  Future<void> _playCardAudio(Flashcard card) async {
+    if (_playingCardId != null) return;
+    setState(() => _playingCardId = card.id);
+    try {
+      final audioBytes = await widget.api.loadCardAudio(card.id);
+      if (mounted) {
+        await _player.play(audioBytes);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tạm thời chưa phát được âm thanh. Em vẫn có thể tiếp tục xem từ vựng.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _playingCardId = null);
+      }
+    }
   }
 
   Future<void> _action(Future<void> Function() work) async {
@@ -416,18 +457,35 @@ class _DeckScreenState extends State<DeckScreen> {
                                     ? 'Đã ôn'
                                     : 'Ôn tiếp: ${card.dueAt!.toLocal().toString().split(".").first}',
                               ),
-                              TextButton.icon(
-                                onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => SpeakingScreen(
-                                      api: widget.api,
-                                      card: card,
+                              if (widget.speaking)
+                                TextButton.icon(
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => SpeakingScreen(
+                                        api: widget.api,
+                                        card: card,
+                                      ),
                                     ),
                                   ),
+                                  icon: const Icon(Icons.mic),
+                                  label: const Text('Luyện nói từ này'),
+                                )
+                              else
+                                TextButton.icon(
+                                  onPressed: _playingCardId == card.id
+                                      ? null
+                                      : () => _playCardAudio(card),
+                                  icon: _playingCardId == card.id
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.volume_up),
+                                  label: const Text('Nghe phát âm'),
                                 ),
-                                icon: const Icon(Icons.mic),
-                                label: const Text('Luyện nói từ này'),
-                              ),
                             ],
                           ),
                         ),

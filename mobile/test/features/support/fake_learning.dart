@@ -40,4 +40,6 @@ mixin EmptyLearning implements LearningApi {
   Future<Uint8List> loadSpeakingAudio(String id) async => throw UnimplementedError();
   @override
   Future<Uint8List> loadSampleAudio(String url) async => throw UnimplementedError();
+  @override
+  Future<Uint8List> loadCardAudio(String cardId) async => throw UnimplementedError();
 }

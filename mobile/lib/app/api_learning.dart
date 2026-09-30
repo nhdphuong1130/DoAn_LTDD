@@ -152,4 +152,7 @@ mixin ApiLearning on Object implements LearningApi {
   @override
   Future<Uint8List> loadSampleAudio(String url) =>
       learningClient.audioBytes(url);
+  @override
+  Future<Uint8List> loadCardAudio(String cardId) =>
+      learningClient.audioBytes('/api/v1/flashcards/cards/$cardId/audio');
 }

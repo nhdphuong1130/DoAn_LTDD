@@ -87,4 +87,12 @@ void main() {
     expect(body, contains('filename="recording.wav"'));
     expect(body, contains('Content-Type: audio/wav'));
   });
+  test('loadCardAudio fetches audio bytes for card id', () async {
+    final bytes = Uint8List.fromList([82, 73, 70, 70]);
+    transport.responses.add(
+      TransportResponse(200, {'content-type': 'audio/wav'}, bytes),
+    );
+    expect(await api.loadCardAudio('card-123'), bytes);
+    expect(transport.requests.single.uri.path, '/api/v1/flashcards/cards/card-123/audio');
+  });
 }

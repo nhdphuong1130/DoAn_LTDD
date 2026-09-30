@@ -204,4 +204,5 @@ abstract interface class LearningApi {
   Future<List<SpeakingResult>> loadSpeakingHistory();
   Future<Uint8List> loadSpeakingAudio(String id);
   Future<Uint8List> loadSampleAudio(String url);
+  Future<Uint8List> loadCardAudio(String cardId);
 }

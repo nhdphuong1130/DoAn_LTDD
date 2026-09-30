@@ -14,6 +14,12 @@ class FakeLearningApi implements LearningApi {
   Object? submitError;
   bool voicesAvailable = true;
   Completer<Uint8List>? preview;
+  int cardAudioCalls = 0;
+  @override
+  Future<Uint8List> loadCardAudio(String cardId) async {
+    cardAudioCalls++;
+    return Uint8List.fromList([82, 73, 70, 70]);
+  }
   @override
   Future<Uint8List> previewVoice(String id) => preview!.future;
   final requests = <String>[];
@@ -335,6 +341,36 @@ void main() {
       expect(api.requests.first, api.requests.last);
       expect(find.textContaining('100%'), findsOneWidget);
       expect(find.textContaining('không phải điểm phát âm'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'review screen shows audio speaker button on revealed card and plays audio',
+    (tester) async {
+      final api = FakeLearningApi();
+      final recorder = FakeRecorder();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReviewScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            audioPlayer: recorder,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.volume_up), findsNothing);
+      await tester.tap(find.text('Xem đáp án'));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.volume_up), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.volume_up));
+      await tester.pumpAndSettle();
+      expect(api.cardAudioCalls, 1);
+      expect(recorder.plays, 1);
     },
   );
 }

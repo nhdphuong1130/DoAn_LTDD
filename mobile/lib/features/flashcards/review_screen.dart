@@ -1,20 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/learning_api.dart';
+import '../../services/speech_recorder.dart';
 
 class ReviewScreen extends StatefulWidget {
   final LearningApi api;
   final FlashcardDeck deck;
-  const ReviewScreen({super.key, required this.api, required this.deck});
+  final SpeechRecorder? audioPlayer;
+  const ReviewScreen({
+    super.key,
+    required this.api,
+    required this.deck,
+    this.audioPlayer,
+  });
   @override
   State<ReviewScreen> createState() => _ReviewScreenState();
 }
 
 class _ReviewScreenState extends State<ReviewScreen> {
+  late final SpeechRecorder _player =
+      widget.audioPlayer ?? NativeSpeechRecorder();
   late Future<List<Flashcard>> _cards;
   final _answer = TextEditingController();
   int _index = 0;
-  bool _revealed = false, _busy = false;
+  bool _revealed = false, _busy = false, _playingAudio = false;
   String? _error, _requestId, _rating, _submittedAnswer;
   FlashcardReviewResult? _result;
   @override
@@ -26,7 +37,33 @@ class _ReviewScreenState extends State<ReviewScreen> {
   @override
   void dispose() {
     _answer.dispose();
+    unawaited(_player.dispose());
     super.dispose();
+  }
+
+  Future<void> _playCardAudio(String cardId) async {
+    if (_playingAudio) return;
+    setState(() => _playingAudio = true);
+    try {
+      final audioBytes = await widget.api.loadCardAudio(cardId);
+      if (mounted) {
+        await _player.play(audioBytes);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tạm thời chưa phát được âm thanh. Em vẫn có thể tiếp tục học thẻ từ.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _playingAudio = false);
+      }
+    }
   }
 
   Future<void> _rate(Flashcard card, String rating) async {
@@ -58,6 +95,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     setState(() {
       _index++;
       _revealed = false;
+      _playingAudio = false;
       _result = null;
       _requestId = null;
       _rating = null;
@@ -115,9 +153,27 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 child: const Text('Xem đáp án'),
               ),
             if (_revealed) ...[
-              Text(
-                card.word,
-                style: Theme.of(context).textTheme.headlineMedium,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      card.word,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  IconButton(
+                    icon: _playingAudio
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.volume_up),
+                    tooltip: 'Nghe phát âm',
+                    onPressed:
+                        _playingAudio ? null : () => _playCardAudio(card.id),
+                  ),
+                ],
               ),
               Text('${card.ipa ?? ""} ${card.pos ?? ""}'),
               if (card.example.isNotEmpty) Text(card.example),

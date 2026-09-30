@@ -218,7 +218,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(recorder.plays, 0);
   });
-  testWidgets('recall answer is locked before rating and retry is idempotent', (
+  testWidgets('recall retry is idempotent and retains request identity', (
     tester,
   ) async {
     final api = FakeLearningApi();
@@ -236,29 +236,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('hobby'), findsNothing);
-    expect(find.text('Đã nhớ'), findsNothing);
-    await tester.enterText(find.byType(TextField), 'hobbi');
-    await tester.tap(find.text('Xem đáp án'));
-    await tester.pumpAndSettle();
-    expect(api.reviews, isEmpty);
-    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+    expect(find.text('hobby'), findsOneWidget);
+    expect(find.text('Đã nhớ'), findsOneWidget);
     await tester.tap(find.text('Đã nhớ'));
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<OutlinedButton>(
-            find.widgetWithText(OutlinedButton, 'Còn khó'),
-          )
-          .onPressed,
-      isNull,
-    );
-    await tester.tap(find.text('Đã nhớ'));
+    expect(find.text('Thử lại'), findsOneWidget);
+    await tester.tap(find.text('Thử lại'));
     await tester.pumpAndSettle();
     expect(api.reviews.length, 2);
-    expect(api.reviews.first, api.reviews.last);
-    expect(api.reviews.first.answer, 'hobbi');
-    expect(find.textContaining('Chưa đúng'), findsOneWidget);
+    expect(api.reviews.first.requestId, api.reviews.last.requestId);
+    expect(api.reviews.first.rating, 'good');
   });
   testWidgets('published deck offers copy but no edit move or delete', (
     tester,
@@ -349,7 +336,7 @@ void main() {
     },
   );
   testWidgets(
-    'review screen shows audio speaker button on revealed card and plays audio via tts',
+    'review screen shows audio speaker button and plays audio via tts',
     (tester) async {
       final api = FakeLearningApi();
       final recorder = FakeRecorder();
@@ -369,9 +356,6 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.volume_up), findsNothing);
-      await tester.tap(find.text('Xem đáp án'));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.volume_up), findsOneWidget);
       await tester.tap(find.byIcon(Icons.volume_up));
@@ -404,12 +388,36 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Xem đáp án'));
-      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.volume_up));
       await tester.pumpAndSettle();
       expect(api.cardAudioCalls, 1);
       expect(recorder.plays, 1);
+    },
+  );
+  testWidgets(
+    'swiping flashcard horizontally past threshold rates and transitions',
+    (tester) async {
+      final api = FakeLearningApi();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReviewScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('hobby'), findsOneWidget);
+      // Swipe card to the right past threshold (> 110px)
+      await tester.drag(find.text('hobby'), const Offset(160, 0));
+      await tester.pumpAndSettle();
+      expect(api.reviews.isNotEmpty, isTrue);
+      expect(api.reviews.first.rating, 'good');
     },
   );
   testWidgets(

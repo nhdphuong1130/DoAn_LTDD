@@ -149,19 +149,18 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
           Text(card.meaning),
           Text(card.sourceLabel ?? 'Nội dung cá nhân'),
           const SizedBox(height: 16),
-          if (card.audioUrl == null)
-            const Text('Chưa có audio tiếng Anh đã kiểm duyệt cho từ này.')
-          else
-            OutlinedButton(
-              onPressed: _busy || _recording
-                  ? null
-                  : () => _run(
-                      () => _playResponse(
-                        widget.api.loadSampleAudio(card.audioUrl!),
-                      ),
+          OutlinedButton(
+            onPressed: _busy || _recording
+                ? null
+                : () => _run(
+                    () => _playResponse(
+                      card.audioUrl != null
+                          ? widget.api.loadSampleAudio(card.audioUrl!)
+                          : widget.api.loadCardAudio(card.id),
                     ),
-              child: const Text('Nghe mẫu tiếng Anh'),
-            ),
+                  ),
+            child: const Text('Nghe mẫu tiếng Anh'),
+          ),
           const Text(
             'Đọc từ mẫu, thu tối đa 15 giây. Bản thu chỉ được gửi khi bạn chọn gửi.',
           ),

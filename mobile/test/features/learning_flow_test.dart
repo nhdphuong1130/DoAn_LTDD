@@ -373,4 +373,30 @@ void main() {
       expect(recorder.plays, 1);
     },
   );
+  testWidgets(
+    'speaking screen enables sample audio via VieNeu when card has no audioUrl',
+    (tester) async {
+      final api = FakeLearningApi();
+      final recorder = FakeRecorder();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SpeakingScreen(
+            api: api,
+            card: FakeLearningApi.card,
+            recorder: recorder,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Chưa có audio tiếng Anh đã kiểm duyệt cho từ này.'),
+        findsNothing,
+      );
+      expect(find.text('Nghe mẫu tiếng Anh'), findsOneWidget);
+      await tester.tap(find.text('Nghe mẫu tiếng Anh'));
+      await tester.pumpAndSettle();
+      expect(api.cardAudioCalls, 1);
+      expect(recorder.plays, 1);
+    },
+  );
 }

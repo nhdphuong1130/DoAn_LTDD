@@ -9,6 +9,7 @@ import 'package:english7_mobile/features/flashcards/learning_screen.dart';
 import 'package:english7_mobile/features/flashcards/review_screen.dart';
 import 'package:english7_mobile/features/speaking/speaking_screen.dart';
 import 'package:english7_mobile/services/speech_recorder.dart';
+import 'package:english7_mobile/services/tts_service.dart';
 
 class FakeLearningApi implements LearningApi {
   Object? submitError;
@@ -348,10 +349,11 @@ void main() {
     },
   );
   testWidgets(
-    'review screen shows audio speaker button on revealed card and plays audio',
+    'review screen shows audio speaker button on revealed card and plays audio via tts',
     (tester) async {
       final api = FakeLearningApi();
       final recorder = FakeRecorder();
+      final tts = FakeTtsService();
       await tester.pumpWidget(
         MaterialApp(
           home: ReviewScreen(
@@ -363,6 +365,7 @@ void main() {
               cardCount: 1,
             ),
             audioPlayer: recorder,
+            ttsService: tts,
           ),
         ),
       );
@@ -373,21 +376,55 @@ void main() {
       expect(find.byIcon(Icons.volume_up), findsOneWidget);
       await tester.tap(find.byIcon(Icons.volume_up));
       await tester.pumpAndSettle();
+      expect(tts.spoken.length, 1);
+      expect(tts.spoken[0].text, 'hobby');
+      expect(tts.spoken[0].language, 'en-GB');
+      expect(api.cardAudioCalls, 0);
+    },
+  );
+  testWidgets(
+    'review screen falls back to backend audio when tts fails',
+    (tester) async {
+      final api = FakeLearningApi();
+      final recorder = FakeRecorder();
+      final tts = FakeTtsService()..error = Exception('TTS error');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReviewScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            audioPlayer: recorder,
+            ttsService: tts,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xem đáp án'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.volume_up));
+      await tester.pumpAndSettle();
       expect(api.cardAudioCalls, 1);
       expect(recorder.plays, 1);
     },
   );
   testWidgets(
-    'speaking screen enables sample audio via VieNeu when card has no audioUrl',
+    'speaking screen plays sample audio via tts with fallback to backend',
     (tester) async {
       final api = FakeLearningApi();
       final recorder = FakeRecorder();
+      final tts = FakeTtsService();
       await tester.pumpWidget(
         MaterialApp(
           home: SpeakingScreen(
             api: api,
             card: FakeLearningApi.card,
             recorder: recorder,
+            ttsService: tts,
           ),
         ),
       );
@@ -399,15 +436,18 @@ void main() {
       expect(find.text('Nghe mẫu tiếng Anh'), findsOneWidget);
       await tester.tap(find.text('Nghe mẫu tiếng Anh'));
       await tester.pumpAndSettle();
-      expect(api.cardAudioCalls, 1);
-      expect(recorder.plays, 1);
+      expect(tts.spoken.length, 1);
+      expect(tts.spoken[0].text, 'hobby');
+      expect(tts.spoken[0].language, 'en-GB');
+      expect(api.cardAudioCalls, 0);
     },
   );
   testWidgets(
-    'deck screen in flashcard mode plays pronunciation audio instead of opening speaking screen',
+    'deck screen in flashcard mode plays pronunciation audio via tts',
     (tester) async {
       final api = FakeLearningApi();
       final player = FakeRecorder();
+      final tts = FakeTtsService();
       await tester.pumpWidget(
         MaterialApp(
           home: DeckScreen(
@@ -420,6 +460,7 @@ void main() {
             ),
             speaking: false,
             audioPlayer: player,
+            ttsService: tts,
           ),
         ),
       );
@@ -427,6 +468,39 @@ void main() {
 
       expect(find.text('Nghe phát âm tiếng Anh'), findsOneWidget);
       expect(find.text('Luyện nói từ này'), findsNothing);
+
+      await tester.tap(find.text('Nghe phát âm tiếng Anh'));
+      await tester.pumpAndSettle();
+
+      expect(tts.spoken.length, 1);
+      expect(tts.spoken[0].text, 'hobby');
+      expect(tts.spoken[0].language, 'en-GB');
+      expect(api.cardAudioCalls, 0);
+    },
+  );
+  testWidgets(
+    'deck screen falls back to backend audio when tts fails',
+    (tester) async {
+      final api = FakeLearningApi();
+      final player = FakeRecorder();
+      final tts = FakeTtsService()..error = Exception('TTS unavailable');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DeckScreen(
+            api: api,
+            deck: const FlashcardDeck(
+              id: 'deck',
+              name: 'Unit 1',
+              kind: 'textbook',
+              cardCount: 1,
+            ),
+            speaking: false,
+            audioPlayer: player,
+            ttsService: tts,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Nghe phát âm tiếng Anh'));
       await tester.pumpAndSettle();
@@ -464,6 +538,7 @@ void main() {
     (tester) async {
       final api = FakeLearningApi()..cardAudioError = Exception('Network error');
       final player = FakeRecorder();
+      final tts = FakeTtsService()..error = Exception('TTS unavailable');
       await tester.pumpWidget(
         MaterialApp(
           home: DeckScreen(
@@ -476,6 +551,7 @@ void main() {
             ),
             speaking: false,
             audioPlayer: player,
+            ttsService: tts,
           ),
         ),
       );
@@ -493,6 +569,7 @@ void main() {
     (tester) async {
       final api = FakeLearningApi()..cardAudioCompleter = Completer<Uint8List>();
       final player = FakeRecorder();
+      final tts = FakeTtsService()..error = Exception('TTS unavailable');
       await tester.pumpWidget(
         MaterialApp(
           home: Navigator(
@@ -507,6 +584,7 @@ void main() {
                 ),
                 speaking: false,
                 audioPlayer: player,
+                ttsService: tts,
               ),
             ),
           ),

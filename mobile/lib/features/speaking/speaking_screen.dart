@@ -6,16 +6,19 @@ import 'package:flutter/material.dart';
 import '../../app/learning_api.dart';
 import '../../api/api_error.dart';
 import '../../services/speech_recorder.dart';
+import '../../services/tts_service.dart';
 
 class SpeakingScreen extends StatefulWidget {
   final LearningApi api;
   final Flashcard card;
   final SpeechRecorder? recorder;
+  final TtsService? ttsService;
   const SpeakingScreen({
     super.key,
     required this.api,
     required this.card,
     this.recorder,
+    this.ttsService,
   });
   @override
   State<SpeakingScreen> createState() => _SpeakingScreenState();
@@ -24,6 +27,7 @@ class SpeakingScreen extends StatefulWidget {
 class _SpeakingScreenState extends State<SpeakingScreen> {
   late final SpeechRecorder _recorder =
       widget.recorder ?? NativeSpeechRecorder();
+  late final TtsService _tts = widget.ttsService ?? NativeTtsService();
   SpeakingVoices? _voices;
   String? _voice, _error, _requestId, _submittedVoice;
   Uint8List? _audio;
@@ -133,6 +137,7 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
     _timer?.cancel();
     _audio = null;
     unawaited(_recorder.dispose());
+    unawaited(_tts.dispose());
     super.dispose();
   }
 
@@ -152,13 +157,17 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
           OutlinedButton(
             onPressed: _busy || _recording
                 ? null
-                : () => _run(
-                    () => _playResponse(
-                      card.audioUrl != null
-                          ? widget.api.loadSampleAudio(card.audioUrl!)
-                          : widget.api.loadCardAudio(card.id),
-                    ),
-                  ),
+                : () => _run(() async {
+                    try {
+                      await _tts.speak(card.word, language: 'en-GB');
+                    } catch (_) {
+                      await _playResponse(
+                        card.audioUrl != null
+                            ? widget.api.loadSampleAudio(card.audioUrl!)
+                            : widget.api.loadCardAudio(card.id),
+                      );
+                    }
+                  }),
             child: const Text('Nghe mẫu tiếng Anh'),
           ),
           const Text(

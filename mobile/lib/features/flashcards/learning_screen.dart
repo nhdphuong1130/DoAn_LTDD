@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/learning_api.dart';
 import '../../services/speech_recorder.dart';
+import '../../services/tts_service.dart';
 import '../speaking/speaking_screen.dart';
 import 'review_screen.dart';
 
@@ -175,12 +176,14 @@ class DeckScreen extends StatefulWidget {
   final FlashcardDeck deck;
   final bool speaking;
   final SpeechRecorder? audioPlayer;
+  final TtsService? ttsService;
   const DeckScreen({
     super.key,
     required this.api,
     required this.deck,
     this.speaking = false,
     this.audioPlayer,
+    this.ttsService,
   });
   @override
   State<DeckScreen> createState() => _DeckScreenState();
@@ -189,6 +192,7 @@ class DeckScreen extends StatefulWidget {
 class _DeckScreenState extends State<DeckScreen> {
   late final SpeechRecorder _player =
       widget.audioPlayer ?? NativeSpeechRecorder();
+  late final TtsService _tts = widget.ttsService ?? NativeTtsService();
   late Future<List<Flashcard>> _cards;
   String? _playingCardId;
 
@@ -201,6 +205,7 @@ class _DeckScreenState extends State<DeckScreen> {
   @override
   void dispose() {
     unawaited(_player.dispose());
+    unawaited(_tts.dispose());
     super.dispose();
   }
 
@@ -212,9 +217,13 @@ class _DeckScreenState extends State<DeckScreen> {
     if (_playingCardId != null) return;
     setState(() => _playingCardId = card.id);
     try {
-      final audioBytes = await widget.api.loadCardAudio(card.id);
-      if (mounted) {
-        await _player.play(audioBytes);
+      try {
+        await _tts.speak(card.word, language: 'en-GB');
+      } catch (_) {
+        final audioBytes = await widget.api.loadCardAudio(card.id);
+        if (mounted) {
+          await _player.play(audioBytes);
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -322,8 +331,12 @@ class _DeckScreenState extends State<DeckScreen> {
               onPressed: () async {
                 await Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ReviewScreen(api: widget.api, deck: widget.deck),
+                    builder: (_) => ReviewScreen(
+                      api: widget.api,
+                      deck: widget.deck,
+                      audioPlayer: widget.audioPlayer,
+                      ttsService: widget.ttsService,
+                    ),
                   ),
                 );
                 if (mounted) setState(_reload);
@@ -479,6 +492,8 @@ class _DeckScreenState extends State<DeckScreen> {
                                       builder: (_) => SpeakingScreen(
                                         api: widget.api,
                                         card: card,
+                                        recorder: widget.audioPlayer,
+                                        ttsService: widget.ttsService,
                                       ),
                                     ),
                                   ),

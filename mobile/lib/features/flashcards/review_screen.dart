@@ -4,16 +4,19 @@ import 'package:flutter/material.dart';
 
 import '../../app/learning_api.dart';
 import '../../services/speech_recorder.dart';
+import '../../services/tts_service.dart';
 
 class ReviewScreen extends StatefulWidget {
   final LearningApi api;
   final FlashcardDeck deck;
   final SpeechRecorder? audioPlayer;
+  final TtsService? ttsService;
   const ReviewScreen({
     super.key,
     required this.api,
     required this.deck,
     this.audioPlayer,
+    this.ttsService,
   });
   @override
   State<ReviewScreen> createState() => _ReviewScreenState();
@@ -22,6 +25,7 @@ class ReviewScreen extends StatefulWidget {
 class _ReviewScreenState extends State<ReviewScreen> {
   late final SpeechRecorder _player =
       widget.audioPlayer ?? NativeSpeechRecorder();
+  late final TtsService _tts = widget.ttsService ?? NativeTtsService();
   late Future<List<Flashcard>> _cards;
   final _answer = TextEditingController();
   int _index = 0;
@@ -38,16 +42,21 @@ class _ReviewScreenState extends State<ReviewScreen> {
   void dispose() {
     _answer.dispose();
     unawaited(_player.dispose());
+    unawaited(_tts.dispose());
     super.dispose();
   }
 
-  Future<void> _playCardAudio(String cardId) async {
+  Future<void> _playCardAudio(Flashcard card) async {
     if (_playingAudio) return;
     setState(() => _playingAudio = true);
     try {
-      final audioBytes = await widget.api.loadCardAudio(cardId);
-      if (mounted) {
-        await _player.play(audioBytes);
+      try {
+        await _tts.speak(card.word, language: 'en-GB');
+      } catch (_) {
+        final audioBytes = await widget.api.loadCardAudio(card.id);
+        if (mounted) {
+          await _player.play(audioBytes);
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -171,7 +180,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                         : const Icon(Icons.volume_up),
                     tooltip: 'Nghe phát âm',
                     onPressed:
-                        _playingAudio ? null : () => _playCardAudio(card.id),
+                        _playingAudio ? null : () => _playCardAudio(card),
                   ),
                 ],
               ),

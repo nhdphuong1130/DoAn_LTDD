@@ -32,7 +32,7 @@
 - Produces: `FlashcardService.card_audio(user_id: UUID, card_id: UUID) -> bytes`
 - Produces: Endpoint `GET /api/v1/flashcards/cards/{card_id}/audio`
 
-- [ ] **Step 1: Write the failing test for vocabulary audio service and caching**
+- [x] **Step 1: Write the failing test for vocabulary audio service and caching**
 
 ```python
 # backend/tests/modules/flashcards/test_audio.py
@@ -62,12 +62,12 @@ def test_cache_miss_synthesizes_and_caches(tmp_path: Path):
     assert len(runtime.calls) == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `pytest backend/tests/modules/flashcards/test_audio.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'english7.modules.flashcards.audio_cache'`
 
-- [ ] **Step 3: Implement `VocabAudioCache` and wire into `FlashcardService` and `router.py`**
+- [x] **Step 3: Implement `VocabAudioCache` and wire into `FlashcardService` and `router.py`**
 
 Create `backend/src/english7/modules/flashcards/audio_cache.py`:
 ```python
@@ -123,16 +123,16 @@ def card_audio(card_id: UUID, user: Student, service: Service) -> Response:
     return Response(content=audio_bytes, media_type='audio/wav', headers={'Cache-Control': 'public, max-age=86400'})
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pytest backend/tests/modules/flashcards/test_audio.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Write API integration test in `backend/tests/api/test_learning.py`**
+- [x] **Step 5: Write API integration test in `backend/tests/api/test_learning.py`**
 
 Test `client.get(f'/api/v1/flashcards/cards/{card_id}/audio', headers=student_headers)` returning `200` with `audio/wav`.
 
-- [ ] **Step 6: Commit backend changes**
+- [x] **Step 6: Commit backend changes**
 
 ```bash
 git add backend/src/english7/modules/flashcards/ backend/tests/
@@ -152,7 +152,7 @@ git commit -m "feat(backend): add vocab audio caching and card audio endpoint"
 **Interfaces:**
 - Produces: `LearningApi.loadCardAudio(String cardId) -> Future<Uint8List>`
 
-- [ ] **Step 1: Write failing test in `mobile/test/app/api_learning_test.dart`**
+- [x] **Step 1: Write failing test in `mobile/test/app/api_learning_test.dart`**
 
 ```dart
 test('loadCardAudio fetches audio bytes for card id', () async {
@@ -163,12 +163,12 @@ test('loadCardAudio fetches audio bytes for card id', () async {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd mobile && flutter test test/app/api_learning_test.dart`
 Expected: FAIL with `The method 'loadCardAudio' isn't defined`
 
-- [ ] **Step 3: Implement `loadCardAudio` in `LearningApi` and `ApiLearning`**
+- [x] **Step 3: Implement `loadCardAudio` in `LearningApi` and `ApiLearning`**
 
 In `mobile/lib/app/learning_api.dart`:
 ```dart
@@ -188,12 +188,12 @@ Update `FakeLearningApi` in `mobile/test/features/support/fake_learning.dart`:
 Future<Uint8List> loadCardAudio(String cardId) async => Uint8List.fromList([1, 2, 3]);
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd mobile && flutter test test/app/api_learning_test.dart`
 Expected: PASS
 
-- [ ] **Step 5: Commit mobile API client changes**
+- [x] **Step 5: Commit mobile API client changes**
 
 ```bash
 git add mobile/lib/app/ mobile/test/
@@ -212,7 +212,7 @@ git commit -m "feat(mobile): add loadCardAudio to LearningApi contract"
 - Consumes: `LearningApi.loadCardAudio(String cardId)`
 - Produces: Speaker button `Icons.volume_up` on revealed flashcard to hear pronunciation.
 
-- [ ] **Step 1: Write failing widget test in `mobile/test/features/learning_flow_test.dart`**
+- [x] **Step 1: Write failing widget test in `mobile/test/features/learning_flow_test.dart`**
 
 ```dart
 testWidgets('review screen shows audio speaker button on revealed card and plays audio', (tester) async {
@@ -224,24 +224,24 @@ testWidgets('review screen shows audio speaker button on revealed card and plays
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd mobile && flutter test test/features/learning_flow_test.dart`
 Expected: FAIL (no `Icons.volume_up` found)
 
-- [ ] **Step 3: Implement speaker button and audio playback in `ReviewScreen`**
+- [x] **Step 3: Implement speaker button and audio playback in `ReviewScreen`**
 
 In `mobile/lib/features/flashcards/review_screen.dart`:
 - Add `bool _playingAudio = false;` state.
 - In revealed section, next to `card.word`, add an `IconButton(icon: Icon(Icons.volume_up))` with loading state.
 - Implement `_playAudio(String cardId)` to call `widget.api.loadCardAudio(cardId)` and play through `SpeechRecorder` or native audio player, catching errors with a SnackBar notification.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd mobile && flutter test test/features/learning_flow_test.dart`
 Expected: PASS
 
-- [ ] **Step 5: Commit review screen changes**
+- [x] **Step 5: Commit review screen changes**
 
 ```bash
 git add mobile/lib/features/flashcards/review_screen.dart mobile/test/
@@ -260,27 +260,27 @@ git commit -m "feat(mobile): add pronunciation audio playback to flashcard revie
 - Consumes: `LearningApi.loadCardAudio(String cardId)`
 - Produces: Always-enabled "Nghe mẫu tiếng Anh" button playing vocabulary pronunciation via VieNeu-TTS.
 
-- [ ] **Step 1: Write failing test in `mobile/test/features/learning_flow_test.dart`**
+- [x] **Step 1: Write failing test in `mobile/test/features/learning_flow_test.dart`**
 
 Verify that even when `card.audioUrl == null`, "Nghe mẫu tiếng Anh" button is enabled, and tapping it calls `loadCardAudio(card.id)`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd mobile && flutter test test/features/learning_flow_test.dart`
 Expected: FAIL with missing button or "Chưa có audio..." text present.
 
-- [ ] **Step 3: Update `SpeakingScreen` to call `loadCardAudio(card.id)`**
+- [x] **Step 3: Update `SpeakingScreen` to call `loadCardAudio(card.id)`**
 
 In `mobile/lib/features/speaking/speaking_screen.dart`:
 - Replace `if (card.audioUrl == null) ... else ...` with an unconditional `OutlinedButton` titled `'Nghe mẫu tiếng Anh'`.
 - Wire `onPressed` to `() => _run(() => _playResponse(widget.api.loadCardAudio(card.id)))`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd mobile && flutter test test/features/learning_flow_test.dart`
 Expected: PASS
 
-- [ ] **Step 5: Commit speaking screen changes**
+- [x] **Step 5: Commit speaking screen changes**
 
 ```bash
 git add mobile/lib/features/speaking/speaking_screen.dart mobile/test/
@@ -294,17 +294,17 @@ git commit -m "feat(mobile): enable sample pronunciation audio via VieNeu-TTS in
 **Files:**
 - All modified files
 
-- [ ] **Step 1: Run full backend test suite**
+- [x] **Step 1: Run full backend test suite**
 
 Run: `cd backend && pytest`
 Expected: All tests PASS.
 
-- [ ] **Step 2: Run full mobile test suite and analyzer**
+- [x] **Step 2: Run full mobile test suite and analyzer**
 
 Run: `cd mobile && flutter test && flutter analyze`
 Expected: Zero test failures, zero lint issues.
 
-- [ ] **Step 3: Run root make check targets**
+- [x] **Step 3: Run root make check targets**
 
 Run: `make test && make analyze`
 Expected: PASS.

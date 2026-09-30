@@ -128,6 +128,9 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
     try {
       await widget.api.verifyOtp(formattedPhone, otp);
       if (mounted) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
         widget.onAuthenticated();
       }
     } catch (e) {

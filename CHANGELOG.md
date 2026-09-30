@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 3-step sequential onboarding wizard for registration and password reset (`Số điện thoại` -> `Xác thực OTP` -> `Thiết lập mật khẩu`) with visual step indicator.
+- Pre-validation endpoint `POST /api/v1/auth/otp/validate` allowing client to verify OTP correctness before showing the password input step without consuming the token prematurely.
+- Global `_navigatorKey` in `English7App` popping all pushed modal/screens upon auth state changes (`_onAuthenticated` and `_logout`) to guarantee immediate navigation into `StudentShell`.
 - Separated speaking practice into two dedicated modes: "Luyện nói từ vựng" (individual vocabulary words) and "Luyện nói cả câu" (complete unit sentences).
 - Added continuous model sentence ("câu mẫu liền mạch") display in sentence speaking practice session.
 - Configured 5-failure threshold before unlocking the skip button ("Bỏ qua") during speaking practice to encourage deliberate student effort.
@@ -19,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Removed hardcoded sample credentials and phone numbers from login and forgot password input hint texts.
+- Fixed `RegisterScreen` staying on screen with infinite loading spinner after successful registration by popping the route and safely resetting loading state in finally block.
 - Removed English example sentence display from flashcard back card and deck card list, keeping flashcards focused strictly on English word + phonetic on the front, and Vietnamese meaning on the back.
 - Load retrieval embeddings lazily into the persistent configured cache so model downloads cannot block login or flashcard startup.
 - Persist quiz submissions and graded answers atomically, scope progress to the authenticated student, and make submission retries idempotent. Replace the placeholder progress tab with totals, accuracy, submission history, refresh, and error recovery.

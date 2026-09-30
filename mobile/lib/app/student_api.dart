@@ -256,6 +256,7 @@ abstract interface class StudentApi implements LearningApi {
     String purpose = 'login',
   });
   Future<void> verifyOtp(String phone, String otp);
+  Future<void> validateOtp(String phone, String otp);
   Future<void> registerPhone({
     required String phone,
     required String otp,

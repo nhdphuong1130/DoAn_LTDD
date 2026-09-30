@@ -185,6 +185,19 @@ class SmsOtpService:
         )
         return f"Mã OTP đã được tạo (Dev mode): {code}"
 
+    def check_otp(self, phone: str, otp: str) -> bool:
+        target_phone = self.normalize_phone(phone)
+        entry = self._store.get(target_phone)
+        if not entry:
+            return False
+
+        saved_code, expire_at = entry
+        if time.time() > expire_at:
+            self._store.pop(target_phone, None)
+            return False
+
+        return saved_code == otp.strip()
+
     def verify_otp(self, phone: str, otp: str) -> bool:
         target_phone = self.normalize_phone(phone)
         entry = self._store.get(target_phone)

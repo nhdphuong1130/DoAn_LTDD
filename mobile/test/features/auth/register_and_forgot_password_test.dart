@@ -9,7 +9,7 @@ import '../support/fakes.dart';
 
 void main() {
   group('RegisterScreen', () {
-    testWidgets('sends OTP with register purpose and registers successfully', (tester) async {
+    testWidgets('sends OTP with register purpose, validates OTP, then registers successfully', (tester) async {
       final api = FakeStudentApi();
       var authenticated = false;
 
@@ -22,7 +22,7 @@ void main() {
         ),
       );
 
-      // Enter phone
+      // Step 1: Enter phone
       await tester.enterText(find.byKey(const Key('register-phone-input')), '0374423251');
       await tester.pump();
 
@@ -33,9 +33,19 @@ void main() {
       expect(api.sentOtpPhones, ['+84374423251']);
       expect(api.sentOtpPurposes, ['register']);
       expect(find.byKey(const Key('register-otp-input')), findsOneWidget);
+      expect(find.byKey(const Key('register-password-input')), findsNothing);
 
-      // Enter OTP and Passwords
+      // Step 2: Enter OTP and Validate
       await tester.enterText(find.byKey(const Key('register-otp-input')), '123456');
+      await tester.tap(find.byKey(const Key('verify-otp-btn')));
+      await tester.pumpAndSettle();
+
+      expect(api.validateOtpCalls, 1);
+      expect(api.lastValidatedPhone, '+84374423251');
+      expect(api.lastValidatedOtp, '123456');
+
+      // Step 3: Enter Passwords and complete registration
+      expect(find.byKey(const Key('register-password-input')), findsOneWidget);
       await tester.enterText(find.byKey(const Key('register-password-input')), 'NewSecurePass123!');
       await tester.enterText(find.byKey(const Key('register-confirm-password-input')), 'NewSecurePass123!');
       await tester.pump();
@@ -82,10 +92,43 @@ void main() {
       expect(find.text('Đăng nhập lại'), findsOneWidget);
       expect(find.text('Quên mật khẩu?'), findsOneWidget);
     });
+
+    testWidgets('shows error on invalid OTP at step 2 and stays on OTP screen', (tester) async {
+      final api = FakeStudentApi();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RegisterScreen(
+            api: api,
+            onAuthenticated: () {},
+          ),
+        ),
+      );
+
+      // Step 1: Send OTP
+      await tester.enterText(find.byKey(const Key('register-phone-input')), '0374423251');
+      await tester.tap(find.byKey(const Key('register-send-otp-btn')));
+      await tester.pumpAndSettle();
+
+      // Configure next OTP error
+      api.nextOtpError = const ApiException(
+        code: 'invalid_otp',
+        message: 'Mã OTP không chính xác hoặc đã hết hạn',
+        statusCode: 400,
+      );
+
+      // Step 2: Try invalid OTP
+      await tester.enterText(find.byKey(const Key('register-otp-input')), '000000');
+      await tester.tap(find.byKey(const Key('verify-otp-btn')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Mã OTP không chính xác hoặc đã hết hạn'), findsOneWidget);
+      expect(find.byKey(const Key('register-password-input')), findsNothing);
+    });
   });
 
   group('ForgotPasswordScreen', () {
-    testWidgets('sends OTP and resets password successfully', (tester) async {
+    testWidgets('sends OTP, validates OTP, then resets password successfully', (tester) async {
       final api = FakeStudentApi();
 
       await tester.pumpWidget(
@@ -94,7 +137,7 @@ void main() {
         ),
       );
 
-      // Enter phone
+      // Step 1: Enter phone
       final phoneField = find.byKey(const Key('forgot-phone-input'));
       await tester.ensureVisible(phoneField);
       await tester.enterText(phoneField, '0374423251');
@@ -109,9 +152,19 @@ void main() {
       expect(api.sentOtpPhones, ['+84374423251']);
       expect(api.sentOtpPurposes, ['reset_password']);
       expect(find.byKey(const Key('reset-otp-input')), findsOneWidget);
+      expect(find.byKey(const Key('reset-new-password-input')), findsNothing);
 
-      // Enter OTP and Passwords
+      // Step 2: Enter OTP and Validate
       await tester.enterText(find.byKey(const Key('reset-otp-input')), '654321');
+      await tester.tap(find.byKey(const Key('verify-reset-otp-btn')));
+      await tester.pumpAndSettle();
+
+      expect(api.validateOtpCalls, 1);
+      expect(api.lastValidatedPhone, '+84374423251');
+      expect(api.lastValidatedOtp, '654321');
+
+      // Step 3: Enter New Passwords and submit
+      expect(find.byKey(const Key('reset-new-password-input')), findsOneWidget);
       await tester.enterText(find.byKey(const Key('reset-new-password-input')), 'ResetPass123!');
       await tester.enterText(find.byKey(const Key('reset-confirm-password-input')), 'ResetPass123!');
       await tester.pump();
@@ -145,6 +198,36 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Số điện thoại này chưa được đăng ký trong hệ thống'), findsOneWidget);
+    });
+
+    testWidgets('shows error on invalid OTP at step 2 for forgot password', (tester) async {
+      final api = FakeStudentApi();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgotPasswordScreen(api: api),
+        ),
+      );
+
+      // Step 1: Send OTP
+      await tester.enterText(find.byKey(const Key('forgot-phone-input')), '0374423251');
+      await tester.tap(find.byKey(const Key('forgot-send-otp-btn')));
+      await tester.pumpAndSettle();
+
+      // Configure next OTP error
+      api.nextOtpError = const ApiException(
+        code: 'invalid_otp',
+        message: 'Mã OTP không chính xác hoặc đã hết hạn',
+        statusCode: 400,
+      );
+
+      // Step 2: Try invalid OTP
+      await tester.enterText(find.byKey(const Key('reset-otp-input')), '000000');
+      await tester.tap(find.byKey(const Key('verify-reset-otp-btn')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Mã OTP không chính xác hoặc đã hết hạn'), findsOneWidget);
+      expect(find.byKey(const Key('reset-new-password-input')), findsNothing);
     });
   });
 

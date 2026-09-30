@@ -59,6 +59,18 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
     );
   }
 
+  int validateOtpCalls = 0;
+  String? lastValidatedPhone;
+  String? lastValidatedOtp;
+
+  @override
+  Future<void> validateOtp(String phone, String otp) async {
+    validateOtpCalls += 1;
+    lastValidatedPhone = phone;
+    lastValidatedOtp = otp;
+    if (nextOtpError != null) throw nextOtpError!;
+  }
+
   @override
   Future<void> registerPhone({
     required String phone,

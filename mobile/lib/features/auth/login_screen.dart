@@ -74,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email hoặc Số điện thoại',
-                    hintText: 'student@english7.edu.vn hoặc 0374...',
                   ),
                 ),
                 const SizedBox(height: 12),

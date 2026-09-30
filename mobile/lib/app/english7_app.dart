@@ -27,6 +27,7 @@ class English7App extends StatefulWidget {
 }
 
 class _English7AppState extends State<English7App> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
   _SessionState _sessionState = _SessionState.checking;
 
   @override
@@ -53,12 +54,14 @@ class _English7AppState extends State<English7App> {
   }
 
   void _onAuthenticated() {
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() => _sessionState = _SessionState.authenticated);
   }
 
   Future<void> _logout() async {
     await widget.api.logout();
     if (!mounted) return;
+    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() => _sessionState = _SessionState.unauthenticated);
   }
 
@@ -114,6 +117,7 @@ class _English7AppState extends State<English7App> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: _navigatorKey,
     title: 'English 7',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(

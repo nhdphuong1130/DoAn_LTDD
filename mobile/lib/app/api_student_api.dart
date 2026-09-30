@@ -93,6 +93,14 @@ class ApiStudentApi with ApiLearning implements StudentApi {
   }
 
   @override
+  Future<void> validateOtp(String phone, String otp) async {
+    await _client.postJson('/api/v1/auth/otp/validate', {
+      'phone': phone,
+      'otp': otp,
+    });
+  }
+
+  @override
   Future<void> registerPhone({
     required String phone,
     required String otp,

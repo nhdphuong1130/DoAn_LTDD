@@ -25,7 +25,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _isCodeSent = false;
+  // 0: Nhập SĐT, 1: Xác nhận OTP, 2: Thiết lập mật khẩu
+  int _step = 0;
   bool _isLoading = false;
   String? _errorMessage;
   bool _isPhoneAlreadyRegistered = false;
@@ -94,7 +95,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       setState(() {
         _lastChannel = channel;
-        _isCodeSent = true;
+        _step = 1;
         _isLoading = false;
         _errorMessage = null;
         _isPhoneAlreadyRegistered = false;
@@ -121,15 +122,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _verifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6) {
+      setState(() => _errorMessage = 'Vui lòng nhập đủ 6 chữ số OTP');
+      return;
+    }
+
+    final formattedPhone = _formatPhoneNumber(_phoneController.text);
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.api.validateOtp(formattedPhone, otp);
+      if (!mounted) return;
+      setState(() {
+        _step = 2;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e is ApiException ? e.message : 'Mã OTP không hợp lệ: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _register() async {
     final otp = _otpController.text.trim();
     final password = _passwordController.text;
     final confirm = _confirmPasswordController.text;
 
-    if (otp.length != 6) {
-      setState(() => _errorMessage = 'Vui lòng nhập đủ 6 chữ số OTP');
-      return;
-    }
     if (password.length < 8) {
       setState(() => _errorMessage = 'Mật khẩu phải có ít nhất 8 ký tự');
       return;
@@ -159,14 +190,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: Colors.green,
           ),
         );
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
         widget.onAuthenticated();
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isLoading = false;
           _errorMessage = e is ApiException ? e.message : 'Đăng ký thất bại: $e';
         });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -185,11 +222,85 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: _isCodeSent ? _buildRegisterForm(theme) : _buildPhoneInputView(theme),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildStepIndicator(theme),
+                  const SizedBox(height: 24),
+                  if (_step == 0) _buildPhoneInputView(theme),
+                  if (_step == 1) _buildOtpView(theme),
+                  if (_step == 2) _buildPasswordSetupView(theme),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStepIndicator(ThemeData theme) {
+    final stepTitles = ['Số điện thoại', 'Xác thực OTP', 'Thiết lập mật khẩu'];
+    return Row(
+      children: List.generate(3, (index) {
+        final isActive = index == _step;
+        final isCompleted = index < _step;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isCompleted
+                            ? Colors.green
+                            : isActive
+                                ? theme.colorScheme.primary
+                                : Colors.grey[300],
+                      ),
+                      child: Center(
+                        child: isCompleted
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color: isActive ? Colors.white : Colors.grey[700],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      stepTitles[index],
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive ? theme.colorScheme.primary : Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (index < 2)
+                Container(
+                  width: 20,
+                  height: 2,
+                  color: isCompleted ? Colors.green : Colors.grey[300],
+                  margin: const EdgeInsets.only(bottom: 16),
+                ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -330,7 +441,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildRegisterForm(ThemeData theme) {
+  Widget _buildOtpView(ThemeData theme) {
     final formattedPhone = _formatPhoneNumber(_phoneController.text);
     final isVoice = _lastChannel == 'voice';
 
@@ -344,7 +455,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Xác nhận mã & Thiết lập mật khẩu',
+          'Xác nhận mã OTP',
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
@@ -369,7 +480,94 @@ class _RegisterScreenState extends State<RegisterScreen> {
             border: OutlineInputBorder(),
           ),
         ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage!,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+        ],
+        const SizedBox(height: 24),
+        FilledButton(
+          key: const Key('verify-otp-btn'),
+          onPressed: _isLoading ? null : _verifyOtp,
+          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+          child: _isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Xác nhận mã OTP', style: TextStyle(fontSize: 16)),
+        ),
         const SizedBox(height: 16),
+        if (_secondsRemaining > 0)
+          Center(
+            child: Text(
+              'Gửi lại mã sau ${_secondsRemaining}s',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          )
+        else
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.sms_outlined, size: 16),
+                label: const Text('Gửi lại SMS'),
+                onPressed: _isLoading ? null : () => _sendOtp(channel: 'sms'),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.phone_in_talk_outlined, size: 16),
+                label: const Text('Gọi lại đọc mã'),
+                onPressed: _isLoading ? null : () => _sendOtp(channel: 'voice'),
+              ),
+            ],
+          ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: _isLoading
+                ? null
+                : () {
+                    setState(() {
+                      _step = 0;
+                      _errorMessage = null;
+                      _otpController.clear();
+                    });
+                  },
+            child: const Text('Đổi số điện thoại khác'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordSetupView(ThemeData theme) {
+    final formattedPhone = _formatPhoneNumber(_phoneController.text);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(
+          Icons.shield_outlined,
+          size: 64,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Thiết lập mật khẩu',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Mã OTP đã được xác nhận cho số:\n$formattedPhone\nVui lòng đặt mật khẩu bảo vệ tài khoản.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+        ),
+        const SizedBox(height: 24),
         TextField(
           key: const Key('register-password-input'),
           controller: _passwordController,
@@ -412,43 +610,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               : const Text('Hoàn tất Đăng ký', style: TextStyle(fontSize: 16)),
         ),
         const SizedBox(height: 16),
-        if (_secondsRemaining > 0)
-          Center(
-            child: Text(
-              'Gửi lại mã sau ${_secondsRemaining}s',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          )
-        else
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.sms_outlined, size: 16),
-                label: const Text('Gửi lại SMS'),
-                onPressed: _isLoading ? null : () => _sendOtp(channel: 'sms'),
-              ),
-              TextButton.icon(
-                icon: const Icon(Icons.phone_in_talk_outlined, size: 16),
-                label: const Text('Gọi lại đọc mã'),
-                onPressed: _isLoading ? null : () => _sendOtp(channel: 'voice'),
-              ),
-            ],
-          ),
-        const SizedBox(height: 8),
         Center(
-          child: TextButton(
+          child: TextButton.icon(
+            icon: const Icon(Icons.arrow_back, size: 16),
+            label: const Text('Quay lại nhập mã OTP'),
             onPressed: _isLoading
                 ? null
                 : () {
                     setState(() {
-                      _isCodeSent = false;
+                      _step = 1;
                       _errorMessage = null;
-                      _otpController.clear();
                     });
                   },
-            child: const Text('Đổi số điện thoại khác'),
           ),
         ),
       ],

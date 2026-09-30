@@ -221,6 +221,21 @@ def verify_otp(
     return TokenResponse(access_token=token)
 
 
+@router.post("/otp/validate", response_model=SimpleMessageResponse)
+def validate_otp(
+    payload: VerifyOtpRequest,
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
+) -> SimpleMessageResponse:
+    target_phone = payload.phone.strip()
+    if not sms_service.check_otp(target_phone, payload.otp):
+        raise ApplicationError(
+            code="invalid_otp",
+            message="Mã OTP không chính xác hoặc đã hết hạn",
+            status_code=400,
+        )
+    return SimpleMessageResponse(status="success", message="Mã OTP chính xác")
+
+
 @router.post("/register-phone", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 def register_phone(
     payload: RegisterPhoneRequest,

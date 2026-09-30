@@ -271,6 +271,44 @@ def test_otp_verify_rejects_invalid_otp(client) -> None:
         app.dependency_overrides.clear()
 
 
+def test_otp_validate_success_and_invalid(client) -> None:
+    service = configured_service()
+    sms_service = SmsOtpService(
+        account_sid="fake_sid",
+        auth_token=None,
+        from_phone="+1234567890",
+    )
+    app.dependency_overrides[get_auth_service] = lambda: service
+    app.dependency_overrides[get_sms_service] = lambda: sms_service
+    try:
+        client.post(
+            "/api/v1/auth/otp/send",
+            json={"phone": "0365218732"},
+        )
+        stored_code = sms_service._store["+84365218732"][0]
+
+        # Wrong OTP
+        bad_resp = client.post(
+            "/api/v1/auth/otp/validate",
+            json={"phone": "0365218732", "otp": "000000"},
+        )
+        assert bad_resp.status_code == 400
+        assert bad_resp.json()["code"] == "invalid_otp"
+
+        # Correct OTP - valid and NOT consumed
+        good_resp = client.post(
+            "/api/v1/auth/otp/validate",
+            json={"phone": "0365218732", "otp": stored_code},
+        )
+        assert good_resp.status_code == 200
+        assert good_resp.json()["status"] == "success"
+
+        # Verify OTP is still in store for subsequent registration
+        assert "+84365218732" in sms_service._store
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_otp_send_voice_channel(client) -> None:
     service = configured_service()
     service.register_phone("0365218732", "SecurePass123!")

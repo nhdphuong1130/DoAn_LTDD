@@ -20,7 +20,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _isCodeSent = false;
+  // 0: Nhập SĐT, 1: Xác thực OTP, 2: Thiết lập mật khẩu mới
+  int _step = 0;
   bool _isLoading = false;
   String? _errorMessage;
   String _lastChannel = 'sms';
@@ -95,7 +96,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
       setState(() {
         _lastChannel = channel;
-        _isCodeSent = true;
+        _step = 1;
         _isLoading = false;
         _errorMessage = null;
       });
@@ -119,15 +120,45 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
+  Future<void> _verifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.length != 6) {
+      setState(() => _errorMessage = 'Vui lòng nhập đủ 6 chữ số OTP');
+      return;
+    }
+
+    final formattedPhone = _formatPhoneNumber(_phoneController.text);
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.api.validateOtp(formattedPhone, otp);
+      if (!mounted) return;
+      setState(() {
+        _step = 2;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e is ApiException ? e.message : 'Mã OTP không hợp lệ: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> _resetPassword() async {
     final otp = _otpController.text.trim();
     final newPassword = _newPasswordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (otp.length != 6) {
-      setState(() => _errorMessage = 'Vui lòng nhập đủ 6 chữ số OTP');
-      return;
-    }
     if (newPassword.length < 8) {
       setState(() => _errorMessage = 'Mật khẩu mới phải có ít nhất 8 ký tự');
       return;
@@ -162,9 +193,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _isLoading = false;
           _errorMessage = e is ApiException ? e.message : 'Đặt lại mật khẩu thất bại: $e';
         });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -183,11 +217,85 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: _isCodeSent ? _buildResetForm(theme) : _buildPhoneInputView(theme),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildStepIndicator(theme),
+                  const SizedBox(height: 24),
+                  if (_step == 0) _buildPhoneInputView(theme),
+                  if (_step == 1) _buildOtpView(theme),
+                  if (_step == 2) _buildNewPasswordView(theme),
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStepIndicator(ThemeData theme) {
+    final stepTitles = ['Số điện thoại', 'Xác thực OTP', 'Mật khẩu mới'];
+    return Row(
+      children: List.generate(3, (index) {
+        final isActive = index == _step;
+        final isCompleted = index < _step;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isCompleted
+                            ? Colors.green
+                            : isActive
+                                ? theme.colorScheme.primary
+                                : Colors.grey[300],
+                      ),
+                      child: Center(
+                        child: isCompleted
+                            ? const Icon(Icons.check, size: 16, color: Colors.white)
+                            : Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  color: isActive ? Colors.white : Colors.grey[700],
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      stepTitles[index],
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive ? theme.colorScheme.primary : Colors.grey[600],
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (index < 2)
+                Container(
+                  width: 20,
+                  height: 2,
+                  color: isCompleted ? Colors.green : Colors.grey[300],
+                  margin: const EdgeInsets.only(bottom: 16),
+                ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -219,7 +327,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             labelText: 'Số điện thoại hoặc Email đã đăng ký',
-            hintText: '0374423251 hoặc email@english7.edu.vn',
             prefixIcon: Icon(Icons.account_circle_outlined),
             border: OutlineInputBorder(),
           ),
@@ -255,7 +362,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Widget _buildResetForm(ThemeData theme) {
+  Widget _buildOtpView(ThemeData theme) {
     final formattedPhone = _formatPhoneNumber(_phoneController.text);
     final isVoice = _lastChannel == 'voice';
 
@@ -269,13 +376,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Thiết lập mật khẩu mới',
+          'Xác nhận mã OTP',
           textAlign: TextAlign.center,
           style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
-          'Mã OTP đã được gửi đến số $formattedPhone. Vui lòng nhập mã và mật khẩu mới.',
+          'Mã OTP đã được gửi đến:\n$formattedPhone\nVui lòng nhập mã 6 số để tiếp tục.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
         ),
@@ -294,7 +401,94 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             border: OutlineInputBorder(),
           ),
         ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage!,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
+        ],
+        const SizedBox(height: 24),
+        FilledButton(
+          key: const Key('verify-reset-otp-btn'),
+          onPressed: _isLoading ? null : _verifyOtp,
+          style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+          child: _isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : const Text('Xác nhận mã OTP', style: TextStyle(fontSize: 16)),
+        ),
         const SizedBox(height: 16),
+        if (_secondsRemaining > 0)
+          Center(
+            child: Text(
+              'Gửi lại mã sau ${_secondsRemaining}s',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          )
+        else
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.sms_outlined, size: 16),
+                label: const Text('Gửi lại SMS'),
+                onPressed: _isLoading ? null : () => _sendOtp(channel: 'sms'),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.phone_in_talk_outlined, size: 16),
+                label: const Text('Gọi lại đọc mã'),
+                onPressed: _isLoading ? null : () => _sendOtp(channel: 'voice'),
+              ),
+            ],
+          ),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: _isLoading
+                ? null
+                : () {
+                    setState(() {
+                      _step = 0;
+                      _errorMessage = null;
+                      _otpController.clear();
+                    });
+                  },
+            child: const Text('Đổi số điện thoại khác'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewPasswordView(ThemeData theme) {
+    final formattedPhone = _formatPhoneNumber(_phoneController.text);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(
+          Icons.vpn_key_outlined,
+          size: 64,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Thiết lập mật khẩu mới',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Mã OTP đã được xác nhận cho số $formattedPhone.\nVui lòng đặt mật khẩu mới cho tài khoản.',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
+        ),
+        const SizedBox(height: 24),
         TextField(
           key: const Key('reset-new-password-input'),
           controller: _newPasswordController,
@@ -337,43 +531,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               : const Text('Đặt lại mật khẩu', style: TextStyle(fontSize: 16)),
         ),
         const SizedBox(height: 16),
-        if (_secondsRemaining > 0)
-          Center(
-            child: Text(
-              'Gửi lại mã sau ${_secondsRemaining}s',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          )
-        else
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            children: [
-              TextButton.icon(
-                icon: const Icon(Icons.sms_outlined, size: 16),
-                label: const Text('Gửi lại SMS'),
-                onPressed: _isLoading ? null : () => _sendOtp(channel: 'sms'),
-              ),
-              TextButton.icon(
-                icon: const Icon(Icons.phone_in_talk_outlined, size: 16),
-                label: const Text('Gọi lại đọc mã'),
-                onPressed: _isLoading ? null : () => _sendOtp(channel: 'voice'),
-              ),
-            ],
-          ),
-        const SizedBox(height: 8),
         Center(
-          child: TextButton(
+          child: TextButton.icon(
+            icon: const Icon(Icons.arrow_back, size: 16),
+            label: const Text('Quay lại nhập mã OTP'),
             onPressed: _isLoading
                 ? null
                 : () {
                     setState(() {
-                      _isCodeSent = false;
+                      _step = 1;
                       _errorMessage = null;
-                      _otpController.clear();
                     });
                   },
-            child: const Text('Đổi số điện thoại khác'),
           ),
         ),
       ],

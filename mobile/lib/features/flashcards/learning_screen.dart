@@ -376,6 +376,21 @@ class _DeckScreenState extends State<DeckScreen> {
                                     ),
                                   ),
                                   IconButton(
+                                    tooltip: 'Nghe phát âm',
+                                    onPressed: _playingCardId == card.id
+                                        ? null
+                                        : () => _playCardAudio(card),
+                                    icon: _playingCardId == card.id
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(Icons.volume_up),
+                                  ),
+                                  IconButton(
                                     tooltip: card.difficult
                                         ? 'Bỏ đánh dấu khó'
                                         : 'Đánh dấu khó',
@@ -471,7 +486,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                   label: const Text('Luyện nói từ này'),
                                 )
                               else
-                                TextButton.icon(
+                                FilledButton.tonalIcon(
                                   onPressed: _playingCardId == card.id
                                       ? null
                                       : () => _playCardAudio(card),
@@ -484,7 +499,7 @@ class _DeckScreenState extends State<DeckScreen> {
                                           ),
                                         )
                                       : const Icon(Icons.volume_up),
-                                  label: const Text('Nghe phát âm'),
+                                  label: const Text('Nghe phát âm tiếng Anh'),
                                 ),
                             ],
                           ),

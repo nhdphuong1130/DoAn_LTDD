@@ -425,10 +425,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Nghe phát âm'), findsOneWidget);
+      expect(find.text('Nghe phát âm tiếng Anh'), findsOneWidget);
       expect(find.text('Luyện nói từ này'), findsNothing);
 
-      await tester.tap(find.text('Nghe phát âm'));
+      await tester.tap(find.text('Nghe phát âm tiếng Anh'));
       await tester.pumpAndSettle();
 
       expect(api.cardAudioCalls, 1);
@@ -456,7 +456,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Luyện nói từ này'), findsOneWidget);
-      expect(find.text('Nghe phát âm'), findsNothing);
+      expect(find.text('Nghe phát âm tiếng Anh'), findsNothing);
     },
   );
   testWidgets(
@@ -481,7 +481,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Nghe phát âm'));
+      await tester.tap(find.text('Nghe phát âm tiếng Anh'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Tạm thời chưa phát được âm thanh'), findsOneWidget);
@@ -514,7 +514,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Nghe phát âm'));
+      await tester.tap(find.text('Nghe phát âm tiếng Anh'));
       await tester.pump();
 
       await tester.pumpWidget(
